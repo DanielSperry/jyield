@@ -19,8 +19,10 @@ public class YieldContextImpl<T> implements YieldContext<T>, Iterator<T> {
 	public YieldContextImpl(int localsCount, Object target) {
 		super();
 		this.target = target;
-		objectVariables = new Object[localsCount];
-		primitiveVariables = new long[localsCount];
+		if (localsCount > 0) {
+			objectVariables = new Object[localsCount];
+			primitiveVariables = new long[localsCount];
+		}
 	}
 
 	@SuppressWarnings("unchecked")
@@ -147,11 +149,6 @@ public class YieldContextImpl<T> implements YieldContext<T>, Iterator<T> {
 		shouldRemove = true;
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see jyield.runtime.YieldContext#isShouldRemove()
-	 */
 	public boolean getShouldRemove() {
 		return shouldRemove;
 	}
