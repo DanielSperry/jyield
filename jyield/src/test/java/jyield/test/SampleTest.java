@@ -7,7 +7,7 @@ import org.junit.Test;
 import jyield.Continuable;
 import jyield.Yield;
 
-public class CSampleTest {
+public class SampleTest {
 	@Continuable
 	public static Iterable<Integer> power(int number, int exponent) {
 		int counter = 0;
@@ -22,7 +22,6 @@ public class CSampleTest {
 	@Test
 	public void doTest() {
 		// Display powers of 2 up to the exponent 8:
-
 		int val = 2;
 		for (int i : power(2, 8)) {
 			System.out.printf("%d \r\n", i);
