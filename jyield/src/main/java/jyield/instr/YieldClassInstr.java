@@ -15,7 +15,8 @@ public class YieldClassInstr extends ClassAdapter {
 	final Class<?> classBeingRedefined;
 	final ClassLoader loader;
 
-	YieldClassInstr(YieldInstrumentation yinstr, ClassLoader loader, Class<?> classBeingRedefined, ClassVisitor cv) {
+	YieldClassInstr(YieldInstrumentation yinstr, ClassLoader loader,
+			Class<?> classBeingRedefined, ClassVisitor cv) {
 		super(cv);
 		this.yinstr = yinstr;
 		this.loader = loader;
@@ -37,7 +38,7 @@ public class YieldClassInstr extends ClassAdapter {
 	@Override
 	public MethodVisitor visitMethod(int access, String name, String desc,
 			String signature, String[] exceptions) {
-		if (!desc.endsWith(YieldInstrumentation.SUFFIX)) {
+		if (!ClassTaster.isValidDesc(desc)) {
 			return super.visitMethod(access, name, desc, signature, exceptions);
 		}
 

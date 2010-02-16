@@ -2,10 +2,9 @@ package jyield.instr.test;
 
 import java.util.Enumeration;
 
-import jyield.runtime.YieldContext;
+import jyield.runtime.YieldContextImpl;
 
-
-public class YieldTest_MockInstr_produceString extends YieldContext<String> {
+public class YieldTest_MockInstr_produceString extends YieldContextImpl<String> {
 
 	public YieldTest_MockInstr_produceString(int localsCount, Object target) {
 		super(localsCount, target);

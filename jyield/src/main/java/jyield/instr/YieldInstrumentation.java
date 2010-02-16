@@ -6,7 +6,6 @@ import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Method;
 import java.security.ProtectionDomain;
-import java.util.Enumeration;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.objectweb.asm.ClassReader;
@@ -16,8 +15,6 @@ import org.objectweb.asm.commons.EmptyVisitor;
 import org.objectweb.asm.util.CheckClassAdapter;
 
 public class YieldInstrumentation implements ClassFileTransformer {
-	static final String SUFFIX = ")L"
-			+ Enumeration.class.getName().replace('.', '/') + ";";
 
 	ConcurrentHashMap<String, byte[]> newClasses = new ConcurrentHashMap<String, byte[]>();
 	ConcurrentHashMap<String, Class<?>> definedClasses = new ConcurrentHashMap<String, Class<?>>();
@@ -30,33 +27,43 @@ public class YieldInstrumentation implements ClassFileTransformer {
 	public byte[] transform(ClassLoader loader, String className,
 			Class<?> classBeingRedefined, ProtectionDomain protectionDomain,
 			byte[] classfileBuffer) throws IllegalClassFormatException {
-		ClassReader cr = new ClassReader(classfileBuffer);
+		try {
+			ClassReader cr = new ClassReader(classfileBuffer);
 
-		ClassTaster tester = new ClassTaster();
-		cr.accept(tester, 0);
+			ClassTaster taster = new ClassTaster();
+			cr.accept(taster, 0);
 
-		if (!tester.isShouldInstrument()) {
-			return null;
+			if (!taster.isShouldInstrument()) {
+				return null;
+			}
+
+			ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS
+					| ClassWriter.COMPUTE_FRAMES);
+			ClassVisitor cv = new YieldClassInstr(this, loader,
+					classBeingRedefined, cw);
+			cr.accept(cv, 0);
+			byte[] byteArray = cw.toByteArray();
+			checkClass(byteArray);
+			return byteArray;
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+			throw new RuntimeException(ex);
 		}
 
-		ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS
-				| ClassWriter.COMPUTE_FRAMES);
-		ClassVisitor cv = new YieldClassInstr(this, loader,
-				classBeingRedefined, cw);
-		cr.accept(cv, 0);
-		byte[] byteArray = cw.toByteArray();
+	}
+
+	private void checkClass(byte[] byteArray) {
 		try {
 			ClassReader cr2 = new ClassReader(byteArray);
 			ClassVisitor cv2 = new CheckClassAdapter(new EmptyVisitor());
 			cr2.accept(cv2, 0);
 		} catch (Exception ex) {
-			System.err.println(ex);
+			ex.printStackTrace(System.err);
 		}
-
-		return byteArray;
 	}
 
 	public void loadClass(ClassLoader loader, String className, byte[] byteArray) {
+		checkClass(byteArray);
 		if (instrumentation != null) {
 			try {
 				if (!definedClasses.containsKey(className)) {

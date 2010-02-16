@@ -5,7 +5,7 @@ import static org.junit.Assert.assertEquals;
 import java.util.Enumeration;
 
 import jyield.Yield;
-import jyield.runtime.YieldContext;
+import jyield.runtime.YieldContextImpl;
 
 import org.junit.Test;
 
@@ -23,7 +23,7 @@ public class YieldTest_MockInstr_Test {
 	}
 
 	@SuppressWarnings("unchecked")
-	public Enumeration _produceString_step(YieldContext ye) {
+	public Enumeration _produceString_step(YieldContextImpl ye) {
 		switch (ye.getNextLine()) {
 		case 0:
 			return ye.ret("a", 1);

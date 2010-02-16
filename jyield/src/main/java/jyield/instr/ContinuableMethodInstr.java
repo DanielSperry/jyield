@@ -36,6 +36,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import jyield.Yield;
+import jyield.runtime.YieldContext;
+import jyield.runtime.YieldContextImpl;
+
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodAdapter;
@@ -45,6 +49,7 @@ import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.LabelNode;
+import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.VarInsnNode;
@@ -56,12 +61,16 @@ import org.objectweb.asm.tree.analysis.Frame;
 import org.objectweb.asm.tree.analysis.Value;
 
 final class ContinuableMethodInstr extends MethodAdapter {
-	private static final String YIELD_CONTEXT_CLASS = "jyield/runtime/YieldContext";
-	private static final String STEP_METHOD_DESC = "(L" + YIELD_CONTEXT_CLASS
-			+ ";)L" + Enumeration.class.getName().replace('.', '/') + ";";
+	private static final String YIELD_CONTEXT_IMPL_CLASS = YieldContextImpl.class
+			.getName().replace('.', '/');
+	private static final String YIELD_CONTEXT_CLASS = YieldContext.class
+			.getName().replace('.', '/');
 	private static final String RET = "ret";
 	private static final String DONE = "done";
-	private static final String JVM_YIELD_CLASS_NAME = "jyield/Yield";
+	private static final String JVM_YIELD_CLASS_NAME = Yield.class.getName()
+			.replace('.', '/');
+
+	private String stepMethodDesc;
 	private final MethodNode mn;
 	private final YieldClassInstr cv;
 	private Analyzer analyzer;
@@ -83,9 +92,13 @@ final class ContinuableMethodInstr extends MethodAdapter {
 	@Override
 	public void visitEnd() {
 		super.visitEnd();
+		// System.out.println(mn.name);
 		contextClassName = cv.name + "_YC_" + mn.name + "_"
 				+ Math.abs(mn.desc.hashCode());
 		stepMethodName = mn.name + "_yc_" + Math.abs(mn.desc.hashCode());
+		stepMethodDesc = "(L" + YIELD_CONTEXT_IMPL_CLASS + ";"
+				+ mn.desc.substring(mn.desc.indexOf(')'));
+
 		try {
 			analyzer.analyze(cv.name, mn);
 		} catch (AnalyzerException e) {
@@ -100,15 +113,15 @@ final class ContinuableMethodInstr extends MethodAdapter {
 	private void createYieldContextClass() {
 		ClassWriter ctxw = new ClassWriter(ClassWriter.COMPUTE_FRAMES
 				| ClassWriter.COMPUTE_MAXS);
-		ctxw.visit(cv.version, ACC_PROTECTED, contextClassName, null,
-				YIELD_CONTEXT_CLASS, null);
+		ctxw.visit(cv.version, ACC_PUBLIC, contextClassName, null,
+				YIELD_CONTEXT_IMPL_CLASS, null);
 		ctxw.visitEnd();
 		MethodVisitor cmv = ctxw.visitMethod(ACC_PUBLIC, "<init>",
 				"(ILjava/lang/Object;)V", null, null);
 		cmv.visitVarInsn(ALOAD, 0);
 		cmv.visitVarInsn(ILOAD, 1);
 		cmv.visitVarInsn(ALOAD, 2);
-		cmv.visitMethodInsn(INVOKESPECIAL, YIELD_CONTEXT_CLASS, "<init>",
+		cmv.visitMethodInsn(INVOKESPECIAL, YIELD_CONTEXT_IMPL_CLASS, "<init>",
 				"(ILjava/lang/Object;)V");
 		cmv.visitInsn(RETURN);
 		cmv.visitMaxs(3, 3);
@@ -116,12 +129,19 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		cmv = ctxw.visitMethod(ACC_PROTECTED, "doStep",
 				"()Ljava/util/Enumeration;", null, null);
 		cmv.visitVarInsn(ALOAD, 0);
-		cmv.visitFieldInsn(GETFIELD, YIELD_CONTEXT_CLASS, "target",
-				"Ljava/lang/Object;");
-		cmv.visitTypeInsn(CHECKCAST, cv.name);
+		if (!isStatic) {
+			cmv.visitFieldInsn(GETFIELD, YIELD_CONTEXT_IMPL_CLASS, "target",
+					"Ljava/lang/Object;");
+			cmv.visitTypeInsn(CHECKCAST, cv.name);
+		}
 		cmv.visitVarInsn(ALOAD, 0);
-		cmv.visitMethodInsn(INVOKEVIRTUAL, cv.name, stepMethodName,
-				STEP_METHOD_DESC);
+		if (!isStatic) {
+			cmv.visitMethodInsn(INVOKEVIRTUAL, cv.name, stepMethodName,
+					stepMethodDesc);
+		} else {
+			cmv.visitMethodInsn(INVOKESTATIC, cv.name, stepMethodName,
+					stepMethodDesc);
+		}
 		cmv.visitInsn(ARETURN);
 		cmv.visitMaxs(3, 3);
 		cv.yinstr.loadClass(cv.loader, contextClassName.replace('/', '.'), ctxw
@@ -133,7 +153,7 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		MethodVisitor fmv = cv.underliningVisitor().visitMethod(
 				mn.access | ACC_PUBLIC,
 				stepMethodName,
-				STEP_METHOD_DESC,
+				stepMethodDesc,
 				null,
 				(String[]) mn.exceptions.toArray(new String[mn.exceptions
 						.size()]));
@@ -141,8 +161,8 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		fmv.visitVarInsn(ALOAD, isStatic ? 0 : 1);
 		fmv.visitVarInsn(ASTORE, ctxIdx);
 		fmv.visitVarInsn(ALOAD, ctxIdx);
-		fmv.visitMethodInsn(INVOKEVIRTUAL, YIELD_CONTEXT_CLASS, "getNextLine",
-				"()I");
+		fmv.visitMethodInsn(INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS,
+				"getNextLine", "()I");
 
 		Label start = new Label();
 		fmv.visitTableSwitchInsn(1, retLabels.size(), start, retLabels
@@ -168,7 +188,7 @@ final class ContinuableMethodInstr extends MethodAdapter {
 			instructions.insertBefore(ln, new InsnNode(SWAP));
 			instructions.insertBefore(ln, new IntInsnNode(SIPUSH, i + 1));
 			instructions.insertBefore(ln, new MethodInsnNode(INVOKEVIRTUAL,
-					YIELD_CONTEXT_CLASS, "ret",
+					YIELD_CONTEXT_IMPL_CLASS, "ret",
 					"(Ljava/lang/Object;I)Ljava/util/Enumeration;"));
 			Frame f = labelFrames.get(ln);
 			if (ln.getNext().getOpcode() == ARETURN
@@ -181,7 +201,8 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		for (AbstractInsnNode insn : doneCalls) {
 			instructions.insertBefore(insn, new VarInsnNode(ALOAD, ctxIdx));
 			instructions.insertBefore(insn, new MethodInsnNode(INVOKEVIRTUAL,
-					YIELD_CONTEXT_CLASS, "done", "()Ljava/util/Enumeration;"));
+					YIELD_CONTEXT_IMPL_CLASS, "done", "()L"
+							+ YIELD_CONTEXT_CLASS + ";"));
 			instructions.insertBefore(insn, new InsnNode(ARETURN));
 			if (insn.getNext().getOpcode() == ARETURN
 					|| insn.getNext().getOpcode() == POP) {
@@ -196,9 +217,13 @@ final class ContinuableMethodInstr extends MethodAdapter {
 				.getNext()) {
 			inst.accept(fmv);
 		}
-		// fmv.visitMaxs(3 + mn.maxStack, 4 + mn.maxLocals);
 		fmv.visitInsn(ACONST_NULL);
 		fmv.visitInsn(ARETURN);
+		for (int i = 0; i < mn.localVariables.size(); i++) {
+			LocalVariableNode n = (LocalVariableNode) mn.localVariables.get(i);
+			n.accept(fmv);
+		}
+		// fmv.visitMaxs(3 + mn.maxStack, 4 + mn.maxLocals);
 		fmv.visitMaxs(3 + mn.maxStack, 4 + mn.maxLocals);
 		fmv.visitEnd();
 	}
@@ -258,8 +283,8 @@ final class ContinuableMethodInstr extends MethodAdapter {
 				if (fmv != null) {
 					fmv.visitVarInsn(ALOAD, contextLocalIdx);
 					fmv.visitIntInsn(SIPUSH, j);
-					fmv.visitMethodInsn(INVOKEVIRTUAL, YIELD_CONTEXT_CLASS,
-							aLoadFunc, aLoadDesc);
+					fmv.visitMethodInsn(INVOKEVIRTUAL,
+							YIELD_CONTEXT_IMPL_CLASS, aLoadFunc, aLoadDesc);
 					fmv.visitVarInsn(aStoreOpc, j);
 				} else {
 					// don't mind this nightmarish inverted order
@@ -267,7 +292,7 @@ final class ContinuableMethodInstr extends MethodAdapter {
 							.insert(baseInstruction, new VarInsnNode(aStoreOpc,
 									j));
 					instr.insert(baseInstruction, new MethodInsnNode(
-							INVOKEVIRTUAL, YIELD_CONTEXT_CLASS, aLoadFunc,
+							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, aLoadFunc,
 							aLoadDesc));
 					instr.insert(baseInstruction, new IntInsnNode(SIPUSH, j));
 					instr.insert(baseInstruction, new VarInsnNode(ALOAD,
@@ -279,8 +304,8 @@ final class ContinuableMethodInstr extends MethodAdapter {
 					fmv.visitVarInsn(ALOAD, contextLocalIdx);
 					fmv.visitIntInsn(SIPUSH, j);
 					fmv.visitVarInsn(bLoadOpc, j);
-					fmv.visitMethodInsn(INVOKEVIRTUAL, YIELD_CONTEXT_CLASS,
-							bStoreFunc, bStoreDesc);
+					fmv.visitMethodInsn(INVOKEVIRTUAL,
+							YIELD_CONTEXT_IMPL_CLASS, bStoreFunc, bStoreDesc);
 				} else {
 					instr.insertBefore(baseInstruction, new VarInsnNode(ALOAD,
 							contextLocalIdx));
@@ -289,8 +314,8 @@ final class ContinuableMethodInstr extends MethodAdapter {
 					instr.insertBefore(baseInstruction, new VarInsnNode(
 							bLoadOpc, j));
 					instr.insertBefore(baseInstruction, new MethodInsnNode(
-							INVOKEVIRTUAL, YIELD_CONTEXT_CLASS, bStoreFunc,
-							bStoreDesc));
+							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS,
+							bStoreFunc, bStoreDesc));
 				}
 			}
 
