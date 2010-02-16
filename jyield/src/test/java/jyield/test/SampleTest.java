@@ -24,7 +24,6 @@ public class SampleTest {
 		// Display powers of 2 up to the exponent 8:
 		int val = 2;
 		for (int i : power(2, 8)) {
-			System.out.printf("%d \r\n", i);
 			assertEquals(val, i);
 			val *= 2;
 		}
