@@ -7,6 +7,12 @@
 	<version>0.0.2</version>
 	<name>yield</name>
 	<url>http://maven.apache.org</url>
+	<pluginRepositories>
+		<pluginRepository>
+			<id>repository.riedelcastro.org</id>
+			<url>http://repository.riedelcastro.org</url>
+		</pluginRepository>
+	</pluginRepositories>
 	<build>
 		<plugins>
 			<plugin>
@@ -99,7 +105,23 @@
 					</execution>
 				</executions>
 			</plugin>
-
+			<plugin>
+				<groupId>org.riedelcastro</groupId>
+				<artifactId>gcupload-maven-plugin</artifactId>
+				<version>0.9</version>
+				<configuration>
+					<projectName>jyield</projectName>
+					<allowSnapshots>false</allowSnapshots>
+					<uploads>
+						<upload>
+							<extensions>zip</extensions>
+							<labels>Type-Library,Featured</labels>
+							<postfix>dist</postfix>
+							<summary>jyield distribution with binaries and sources</summary>
+						</upload>
+					</uploads>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 	<dependencies>
