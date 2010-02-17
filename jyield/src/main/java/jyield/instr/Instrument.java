@@ -54,6 +54,9 @@ public class Instrument {
 		}
 		YieldInstrumentation yi = new YieldInstrumentation();
 		for (String file : files) {
+			if (verbose) {
+				System.out.println(new File(file).getAbsolutePath());
+			}
 			RandomAccessFile raf = new RandomAccessFile(file, "r");
 			byte[] classfileBuffer = new byte[(int) raf.length()];
 			try {
