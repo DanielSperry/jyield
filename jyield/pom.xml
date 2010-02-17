@@ -6,15 +6,39 @@
 	<packaging>jar</packaging>
 	<version>0.0.2</version>
 	<name>yield</name>
+	<properties>
+		<maven.build.timestamp.format>yyyyMMdd-HHmm</maven.build.timestamp.format>
+	</properties>
+	<scm>
+		<connection>scm:svn:http://jyield.googlecode.com/svn/trunk/jyield</connection>
+		<developerConnection>scm:svn:https://jyield.googlecode.com/svn/trunk/jyield</developerConnection>
+	</scm>
 	<url>http://maven.apache.org</url>
-	<pluginRepositories>
-		<pluginRepository>
-			<id>repository.riedelcastro.org</id>
-			<url>http://repository.riedelcastro.org</url>
-		</pluginRepository>
-	</pluginRepositories>
+	<!--
+		<pluginRepositories> <pluginRepository>
+		<id>repository.riedelcastro.org</id>
+		<url>http://repository.riedelcastro.org</url> </pluginRepository>
+		</pluginRepositories>
+	-->
 	<build>
+		<finalName>${project.artifactId}-${project.version}-r${buildNumber}</finalName>
 		<plugins>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>buildnumber-maven-plugin</artifactId>
+				<version>1.0-beta-4</version>
+				<executions>
+					<execution>
+						<phase>validate</phase>
+						<goals>
+							<goal>create</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+				</configuration>
+			</plugin>
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
