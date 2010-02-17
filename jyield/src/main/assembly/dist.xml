@@ -15,6 +15,8 @@
 				<include>LICENSE*</include>
 				<include>NOTICE*</include>
 				<include>pom.xml</include>
+				<include>.project</include>
+				<include>.classpath</include>
 			</includes>
 		</fileSet>
 		<fileSet>
@@ -34,6 +36,9 @@
 		</fileSet>
 		<fileSet>
 			<directory>src</directory>
+		</fileSet>
+		<fileSet>
+			<directory>.settings</directory>
 		</fileSet>
 		<fileSet>
 			<directory>util</directory>
