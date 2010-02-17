@@ -3,6 +3,9 @@
  */
 package jyield.instr;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.objectweb.asm.ClassAdapter;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -11,16 +14,10 @@ import org.objectweb.asm.tree.MethodNode;
 public class YieldClassInstr extends ClassAdapter {
 	int version;
 	String name;
-	YieldInstrumentation yinstr;
-	final Class<?> classBeingRedefined;
-	final ClassLoader loader;
+	final Map<String, byte[]> createdClasses = new HashMap<String, byte[]>();
 
-	YieldClassInstr(YieldInstrumentation yinstr, ClassLoader loader,
-			Class<?> classBeingRedefined, ClassVisitor cv) {
+	YieldClassInstr(ClassVisitor cv) {
 		super(cv);
-		this.yinstr = yinstr;
-		this.loader = loader;
-		this.classBeingRedefined = classBeingRedefined;
 	}
 
 	public ClassVisitor underliningVisitor() {

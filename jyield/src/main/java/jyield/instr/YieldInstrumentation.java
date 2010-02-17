@@ -6,6 +6,7 @@ import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Method;
 import java.security.ProtectionDomain;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.objectweb.asm.ClassReader;
@@ -27,6 +28,17 @@ public class YieldInstrumentation implements ClassFileTransformer {
 	public byte[] transform(ClassLoader loader, String className,
 			Class<?> classBeingRedefined, ProtectionDomain protectionDomain,
 			byte[] classfileBuffer) throws IllegalClassFormatException {
+		TransformResult tr = transformClass(classfileBuffer);
+		if (tr == null) {
+			return null;
+		}
+		for (Map.Entry<String, byte[]> e : tr.createdClasses.entrySet()) {
+			loadClass(loader, e.getKey().replace('/', '.'), e.getValue());
+		}
+		return tr.transformedClassFileBuffer;
+	}
+
+	public TransformResult transformClass(byte[] classfileBuffer) {
 		try {
 			ClassReader cr = new ClassReader(classfileBuffer);
 
@@ -36,20 +48,21 @@ public class YieldInstrumentation implements ClassFileTransformer {
 			if (!taster.isShouldInstrument()) {
 				return null;
 			}
+			TransformResult tr = new TransformResult();
+			tr.className = taster.name;
 
 			ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS
 					| ClassWriter.COMPUTE_FRAMES);
-			ClassVisitor cv = new YieldClassInstr(this, loader,
-					classBeingRedefined, cw);
+			YieldClassInstr cv = new YieldClassInstr(cw);
 			cr.accept(cv, 0);
-			byte[] byteArray = cw.toByteArray();
-			checkClass(byteArray);
-			return byteArray;
+			tr.transformedClassFileBuffer = cw.toByteArray();
+			checkClass(tr.transformedClassFileBuffer);
+			tr.createdClasses = cv.createdClasses;
+			return tr;
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 			throw new RuntimeException(ex);
 		}
-
 	}
 
 	private void checkClass(byte[] byteArray) {

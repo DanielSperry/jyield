@@ -3,7 +3,10 @@ package jyield.runtime;
 import java.util.Enumeration;
 import java.util.Iterator;
 
-public class YieldContextImpl<T> implements YieldContext<T>, Iterator<T> {
+import jyield.Continuation;
+
+public class YieldContextImpl<T> implements YieldContext<T>, Iterator<T>,
+		Continuation {
 	protected Object target;
 	private Object[] objectVariables;
 	private long[] primitiveVariables;
@@ -57,7 +60,7 @@ public class YieldContextImpl<T> implements YieldContext<T>, Iterator<T> {
 			joined = null;
 		}
 		if (mustStep) {
-			step();
+			privateStep();
 			mustStep = false;
 		}
 		return hasNext;
@@ -72,13 +75,27 @@ public class YieldContextImpl<T> implements YieldContext<T>, Iterator<T> {
 			joined = null;
 		}
 		if (mustStep)
-			step();
+			privateStep();
 		if (!done)
 			mustStep = true;
 		return (T) nextValue;
 	}
 
-	protected void step() {
+	public boolean step() {
+		if (hasMoreElements()) {
+			nextElement();
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	@Override
+	public boolean isDone() {
+		return done;
+	}
+
+	private void privateStep() {
 		doStep();
 		shouldRemove = false;
 	}

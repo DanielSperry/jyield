@@ -143,8 +143,10 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		}
 		cmv.visitInsn(ARETURN);
 		cmv.visitMaxs(3, 3);
-		cv.yinstr.loadClass(cv.loader, contextClassName.replace('/', '.'), ctxw
-				.toByteArray());
+		cv.createdClasses.put(contextClassName, ctxw.toByteArray());
+		// cv.yinstr.loadClass(cv.loader, contextClassName.replace('/', '.'),
+		// ctxw
+		// .toByteArray());
 	}
 
 	@SuppressWarnings("unchecked")

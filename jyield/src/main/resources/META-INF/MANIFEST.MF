@@ -1,2 +1,3 @@
 Premain-Class: jyield.instr.YieldInstrumentation
 Can-Redefine-Classes: true
+Main-Class: jyield.instr.Instrument
