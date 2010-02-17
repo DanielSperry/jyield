@@ -21,7 +21,9 @@
 		</pluginRepositories>
 	-->
 	<build>
-		<finalName>${project.artifactId}-${project.version}-r${buildNumber}</finalName>
+		<!--
+			<finalName>${project.artifactId}-${project.version}-r${buildNumber}</finalName>
+		-->
 		<plugins>
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
@@ -29,6 +31,7 @@
 				<version>1.0-beta-4</version>
 				<executions>
 					<execution>
+						<id>generating-build-number</id>
 						<phase>validate</phase>
 						<goals>
 							<goal>create</goal>
@@ -144,8 +147,7 @@
 						<configuration>
 							<tasks>
 								<property name="build.compiler" value="extJavac" />
-								<property name="target"
-									value="${project.artifactId}-${project.version}-r${buildNumber}" />
+								<property name="target" value="${project.build.finalName}" />
 								<property name="workdir" value="${project.build.directory}/examples" />
 								<delete dir="${workdir}" failonerror="false" />
 								<mkdir dir="${workdir}" />
@@ -213,6 +215,7 @@
 						<upload>
 							<extensions>zip</extensions>
 							<labels>Type-Library,Featured</labels>
+							<prefix>${project.build.finalName}</prefix>
 							<postfix>dist</postfix>
 							<summary>jyield distribution with binaries and sources</summary>
 						</upload>
