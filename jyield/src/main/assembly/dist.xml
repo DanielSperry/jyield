@@ -43,6 +43,9 @@
 		<fileSet>
 			<directory>util</directory>
 		</fileSet>
+		<fileSet>
+			<directory>examples</directory>
+		</fileSet>
 	</fileSets>
 	<dependencySets>
 		<dependencySet>
