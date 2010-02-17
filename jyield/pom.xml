@@ -5,7 +5,7 @@
 	<artifactId>jyield</artifactId>
 	<packaging>jar</packaging>
 	<version>0.0.2</version>
-	<name>yield</name>
+	<name>jyield</name>
 	<properties>
 		<maven.build.timestamp.format>yyyyMMdd-HHmm</maven.build.timestamp.format>
 	</properties>
