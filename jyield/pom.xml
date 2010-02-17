@@ -52,6 +52,7 @@
 					</encoding>
 				</configuration>
 			</plugin>
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
@@ -63,7 +64,6 @@
 					<useSystemClassLoader>true</useSystemClassLoader>
 				</configuration>
 			</plugin>
-
 
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -79,6 +79,7 @@
 					</archive>
 				</configuration>
 			</plugin>
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-source-plugin</artifactId>
@@ -104,6 +105,7 @@
 					</execution>
 				</executions>
 			</plugin>
+
 			<plugin>
 				<artifactId>maven-assembly-plugin</artifactId>
 				<version>2.1</version>
@@ -131,6 +133,75 @@
 					</execution>
 				</executions>
 			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<version>1.3</version>
+				<executions>
+					<execution>
+						<phase>integration-test</phase>
+						<configuration>
+							<tasks>
+								<property name="build.compiler" value="extJavac" />
+								<property name="target"
+									value="${project.artifactId}-${project.version}-r${buildNumber}" />
+								<property name="workdir" value="${project.build.directory}/examples" />
+								<delete dir="${workdir}" failonerror="false" />
+								<mkdir dir="${workdir}" />
+								<copy todir="${workdir}">
+									<fileset dir="examples" />
+								</copy>
+								<javac srcdir="${workdir}/basic" destdir="${workdir}/basic"
+									classpath="${workdir}/../${target}-with-deps.jar" debug="on"
+									source="1.6" />
+								<java className="Sample" fork="true" dir="${workdir}/basic"
+									failonerror="true" outputproperty="sample.output01">
+									<jvmarg value="-javaagent:${workdir}/../${target}-with-deps.jar" />
+									<classpath>
+										<pathelement location="${workdir}/basic" />
+									</classpath>
+								</java>
+								<echo message="${sample.output01}" />
+								<fail message="Sample code does not produce the expected result!">
+									<condition>
+										<not>
+											<equals arg1="${sample.output01}"
+												arg2="[2] 2 [4] 4 [8] 8 [16] 16 [32] 32 [64] 64 [128] 128 [256] 256 " />
+										</not>
+									</condition>
+								</fail>
+								<java jar="${workdir}/../${target}-with-deps.jar" fork="true"
+									dir="${workdir}/basic" failonerror="true">
+									<arg value="--overwrite" />
+									<arg value="--verbose" />
+									<arg value="Sample.class" />
+								</java>
+								<java className="Sample" fork="true" dir="${workdir}/basic"
+									failonerror="true" outputproperty="sample.output02">
+									<classpath>
+										<pathelement location="${workdir}/../${target}-runtime.jar" />
+										<pathelement location="${workdir}/basic" />
+									</classpath>
+								</java>
+								<echo message="${sample.output02}" />
+								<fail message="Sample code does not produce the expected result!">
+									<condition>
+										<not>
+											<equals arg1="${sample.output02}"
+												arg2="[2] 2 [4] 4 [8] 8 [16] 16 [32] 32 [64] 64 [128] 128 [256] 256 " />
+										</not>
+									</condition>
+								</fail>
+							</tasks>
+						</configuration>
+						<goals>
+							<goal>run</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
 			<plugin>
 				<groupId>org.riedelcastro</groupId>
 				<artifactId>gcupload-maven-plugin</artifactId>
