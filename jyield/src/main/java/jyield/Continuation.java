@@ -1,7 +1,16 @@
 package jyield;
 
-public interface Continuation {
-	public boolean step();
+public abstract class Continuation {
+	public static boolean suspend() {
+		throw new IllegalAccessError("This code must be instrumented to work!");
+	}
 
-	public boolean isDone();
+	public abstract boolean isDone();
+
+	/**
+	 * 
+	 * @return true if is not done
+	 */
+	public abstract boolean resume();
+
 }
