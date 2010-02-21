@@ -26,6 +26,12 @@ public class JoinTest {
 		assertEquals("y", e.next());
 		assertEquals("c3", e.next());
 		assertEquals("c4", e.next());
+		assertEquals("w", e.next());
+		assertEquals("z", e.next());
+		assertEquals("c5", e.next());
+		assertEquals("w2", e.next());
+		assertEquals("z2", e.next());
+		assertEquals("c6", e.next());
 		assertFalse(e.hasNext());
 
 	}
@@ -39,6 +45,10 @@ public class JoinTest {
 		Yield.ret("c3");
 		Yield.join(Collections.emptyList());
 		Yield.ret("c4");
+		Yield.join(Collections.enumeration(Arrays.asList("w", "z")));
+		Yield.ret("c5");
+		Yield.join(Arrays.asList("w2", "z2").iterator());
+		Yield.ret("c6");
 		return null;
 	}
 

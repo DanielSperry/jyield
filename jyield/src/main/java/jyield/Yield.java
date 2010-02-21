@@ -1,6 +1,7 @@
 package jyield;
 
 import java.util.Enumeration;
+import java.util.Iterator;
 
 import jyield.runtime.YieldContext;
 
@@ -17,6 +18,10 @@ public class Yield {
 	}
 
 	public static <T> YieldContext<T> join(Iterable<T> string) {
+		throw new IllegalStateException(errorMessage);
+	}
+
+	public static <T> YieldContext<T> join(Iterator<T> string) {
 		throw new IllegalStateException(errorMessage);
 	}
 

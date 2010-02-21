@@ -30,7 +30,9 @@ import static org.objectweb.asm.Opcodes.SIPUSH;
 import static org.objectweb.asm.Opcodes.SWAP;
 
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -67,9 +69,21 @@ final class ContinuableMethodInstr extends MethodAdapter {
 	private static final String RET_DESC = "(Ljava/lang/Object;I)L"
 			+ YIELD_CONTEXT_CLASS + ";";
 	private static final String JOIN = "join";
-	private static final String JOIN_DESC = "(L"
+	private static final String JOIN_DESC1 = "(L"
 			+ Iterable.class.getName().replace('.', '/') + ";I)L"
 			+ YIELD_CONTEXT_CLASS + ";";
+	private static final String JOIN_DESC2 = "(L"
+			+ Iterator.class.getName().replace('.', '/') + ";I)L"
+			+ YIELD_CONTEXT_CLASS + ";";
+	private static final String JOIN_DESC3 = "(L"
+			+ Enumeration.class.getName().replace('.', '/') + ";I)L"
+			+ YIELD_CONTEXT_CLASS + ";";
+	private static final String JOIN_DESC_PREFIX1 = "(L"
+			+ Iterable.class.getName().replace('.', '/');
+	private static final String JOIN_DESC_PREFIX2 = "(L"
+			+ Iterator.class.getName().replace('.', '/');
+	private static final String JOIN_DESC_PREFIX3 = "(L"
+			+ Enumeration.class.getName().replace('.', '/');
 	// private static final String DONE = "done";
 	private static final String JVM_YIELD_CLASS_NAME = Yield.class.getName()
 			.replace('.', '/');
@@ -197,8 +211,18 @@ final class ContinuableMethodInstr extends MethodAdapter {
 				instructions.insertBefore(ln, new MethodInsnNode(INVOKEVIRTUAL,
 						YIELD_CONTEXT_IMPL_CLASS, "ret", RET_DESC));
 			} else if (JOIN.equals(mn.name)) {
-				instructions.insertBefore(ln, new MethodInsnNode(INVOKEVIRTUAL,
-						YIELD_CONTEXT_IMPL_CLASS, "join", JOIN_DESC));
+				if (mn.desc.startsWith(JOIN_DESC_PREFIX1))
+					instructions.insertBefore(ln, new MethodInsnNode(
+							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, "join",
+							JOIN_DESC1));
+				else if (mn.desc.startsWith(JOIN_DESC_PREFIX2))
+					instructions.insertBefore(ln, new MethodInsnNode(
+							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, "join",
+							JOIN_DESC2));
+				else if (mn.desc.startsWith(JOIN_DESC_PREFIX3))
+					instructions.insertBefore(ln, new MethodInsnNode(
+							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, "join",
+							JOIN_DESC3));
 			}
 			Frame f = labelFrames.get(ln);
 			instructions.insert(ln, new VarInsnNode(ALOAD, ctxIdx));
