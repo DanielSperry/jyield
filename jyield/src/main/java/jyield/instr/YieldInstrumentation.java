@@ -75,7 +75,7 @@ public class YieldInstrumentation implements ClassFileTransformer {
 		}
 	}
 
-	public void loadClass(ClassLoader loader, String className, byte[] byteArray) {
+	private void loadClass(ClassLoader loader, String className, byte[] byteArray) {
 		checkClass(byteArray);
 		if (instrumentation != null) {
 			try {

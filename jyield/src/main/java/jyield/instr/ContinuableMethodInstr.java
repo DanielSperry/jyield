@@ -25,7 +25,6 @@ import static org.objectweb.asm.Opcodes.ISTORE;
 import static org.objectweb.asm.Opcodes.LLOAD;
 import static org.objectweb.asm.Opcodes.LSTORE;
 import static org.objectweb.asm.Opcodes.NEW;
-import static org.objectweb.asm.Opcodes.POP;
 import static org.objectweb.asm.Opcodes.RETURN;
 import static org.objectweb.asm.Opcodes.SIPUSH;
 import static org.objectweb.asm.Opcodes.SWAP;
@@ -65,7 +64,13 @@ final class ContinuableMethodInstr extends MethodAdapter {
 	private static final String YIELD_CONTEXT_CLASS = YieldContext.class
 			.getName().replace('.', '/');
 	private static final String RET = "ret";
-	private static final String DONE = "done";
+	private static final String RET_DESC = "(Ljava/lang/Object;I)L"
+			+ YIELD_CONTEXT_CLASS + ";";
+	private static final String JOIN = "join";
+	private static final String JOIN_DESC = "(L"
+			+ Iterable.class.getName().replace('.', '/') + ";I)L"
+			+ YIELD_CONTEXT_CLASS + ";";
+	// private static final String DONE = "done";
 	private static final String JVM_YIELD_CLASS_NAME = Yield.class.getName()
 			.replace('.', '/');
 
@@ -76,7 +81,6 @@ final class ContinuableMethodInstr extends MethodAdapter {
 	private String contextClassName;
 	private List<Label> retLabels = new ArrayList<Label>();
 	private List<AbstractInsnNode> toRemove = new ArrayList<AbstractInsnNode>();
-	private List<AbstractInsnNode> doneCalls = new ArrayList<AbstractInsnNode>();
 	private String stepMethodName;
 	private boolean isStatic;
 
@@ -185,32 +189,23 @@ final class ContinuableMethodInstr extends MethodAdapter {
 
 		for (int i = 0; i < retLabels.size(); i++) {
 			LabelNode ln = (LabelNode) retLabels.get(i).info;
+			MethodInsnNode mn = (MethodInsnNode) ln.getPrevious();
 			instructions.insertBefore(ln, new VarInsnNode(ALOAD, ctxIdx));
 			instructions.insertBefore(ln, new InsnNode(SWAP));
 			instructions.insertBefore(ln, new IntInsnNode(SIPUSH, i + 1));
-			instructions.insertBefore(ln, new MethodInsnNode(INVOKEVIRTUAL,
-					YIELD_CONTEXT_IMPL_CLASS, "ret",
-					"(Ljava/lang/Object;I)Ljava/util/Enumeration;"));
-			Frame f = labelFrames.get(ln);
-			if (ln.getNext().getOpcode() == ARETURN
-					|| ln.getNext().getOpcode() == POP) {
-				instructions.remove(ln.getNext());
+			if (RET.equals(mn.name)) {
+				instructions.insertBefore(ln, new MethodInsnNode(INVOKEVIRTUAL,
+						YIELD_CONTEXT_IMPL_CLASS, "ret", RET_DESC));
+			} else if (JOIN.equals(mn.name)) {
+				instructions.insertBefore(ln, new MethodInsnNode(INVOKEVIRTUAL,
+						YIELD_CONTEXT_IMPL_CLASS, "join", JOIN_DESC));
 			}
+			Frame f = labelFrames.get(ln);
+			instructions.insert(ln, new VarInsnNode(ALOAD, ctxIdx));
 			emitLoadStoreLocals(true, true, ctxIdx, null, instructions, ln, f);
 			instructions.insertBefore(ln, new InsnNode(ARETURN));
 		}
-		for (AbstractInsnNode insn : doneCalls) {
-			instructions.insertBefore(insn, new VarInsnNode(ALOAD, ctxIdx));
-			instructions.insertBefore(insn, new MethodInsnNode(INVOKEVIRTUAL,
-					YIELD_CONTEXT_IMPL_CLASS, "done", "()L"
-							+ YIELD_CONTEXT_CLASS + ";"));
-			instructions.insertBefore(insn, new InsnNode(ARETURN));
-			if (insn.getNext().getOpcode() == ARETURN
-					|| insn.getNext().getOpcode() == POP) {
-				instructions.remove(insn.getNext());
-			}
-			instructions.remove(insn);
-		}
+
 		for (AbstractInsnNode insn : toRemove) {
 			instructions.remove(insn);
 		}
@@ -359,15 +354,11 @@ final class ContinuableMethodInstr extends MethodAdapter {
 			String desc) {
 		super.visitMethodInsn(opcode, owner, name, desc);
 		if (opcode == INVOKESTATIC && owner.equals(JVM_YIELD_CLASS_NAME)) {
-			if (RET.equals(name)) {
+			if (RET.equals(name) || JOIN.equals(name)) {
 				toRemove.add(mn.instructions.getLast());
 				Label label = new Label();
 				retLabels.add(label);
 				visitLabel(label);
-			}
-			if (DONE.equals(name)) {
-				// toRemove.add(mn.instructions.getLast());
-				doneCalls.add(mn.instructions.getLast());
 			}
 		}
 	}

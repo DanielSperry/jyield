@@ -5,8 +5,8 @@ import java.util.Iterator;
 
 import jyield.Continuation;
 
-public class YieldContextImpl<T> implements YieldContext<T>, Iterator<T>,
-		Continuation {
+public class YieldContextImpl<T> extends Continuation implements
+		YieldContext<T>, Iterator<T> {
 	protected Object target;
 	private Object[] objectVariables;
 	private long[] primitiveVariables;
@@ -15,9 +15,9 @@ public class YieldContextImpl<T> implements YieldContext<T>, Iterator<T>,
 	private boolean mustStep = true;
 	private boolean done;
 	private int nextLine;
-	@SuppressWarnings("unchecked")
-	private Enumeration joined;
+	private Enumeration<T> joined;
 	private boolean shouldRemove;
+	private Iterator<T> joinedIterator;
 
 	public YieldContextImpl(int localsCount, Object target) {
 		super();
@@ -28,18 +28,29 @@ public class YieldContextImpl<T> implements YieldContext<T>, Iterator<T>,
 		}
 	}
 
-	@SuppressWarnings("unchecked")
-	public Enumeration ret(Object obj, int nextLine) {
+	public YieldContext<T> ret(Object obj, int nextLine) {
 		this.nextLine = nextLine;
 		nextValue = obj;
 		hasNext = true;
 		return this;
 	}
 
-	@SuppressWarnings("unchecked")
-	public Enumeration join(Enumeration joined) {
+	public YieldContext<T> join(Enumeration<T> joined, int nextLine) {
 		this.joined = joined;
-		return joined;
+		this.nextLine = nextLine;
+		return this;
+	}
+
+	public YieldContext<T> join(Iterable<T> joined, int nextLine) {
+		this.nextLine = nextLine;
+		this.joinedIterator = joined.iterator();
+		return this;
+	}
+
+	public YieldContext<T> join(Iterator<T> joined, int nextLine) {
+		this.joinedIterator = joined;
+		this.nextLine = nextLine;
+		return this;
 	}
 
 	public int getNextLine() {
@@ -59,10 +70,31 @@ public class YieldContextImpl<T> implements YieldContext<T>, Iterator<T>,
 				return true;
 			joined = null;
 		}
-		if (mustStep) {
-			privateStep();
-			mustStep = false;
+		if (joinedIterator != null) {
+			if (joinedIterator.hasNext())
+				return true;
+			joinedIterator = null;
 		}
+		if (mustStep) {
+			while (true) {
+				privateStep();
+				mustStep = false;
+				if (joined != null) {
+					if (joined.hasMoreElements())
+						return true;
+					joined = null;
+					continue;
+				}
+				if (joinedIterator != null) {
+					if (joinedIterator.hasNext())
+						return true;
+					joinedIterator = null;
+					continue;
+				}
+				break;
+			}
+		}
+
 		return hasNext;
 	}
 
@@ -74,10 +106,36 @@ public class YieldContextImpl<T> implements YieldContext<T>, Iterator<T>,
 				return (T) joined.nextElement();
 			joined = null;
 		}
-		if (mustStep)
-			privateStep();
+		if (joinedIterator != null) {
+			if (joinedIterator.hasNext())
+				return (T) joinedIterator.next();
+			joinedIterator = null;
+		}
+		if (mustStep) {
+			while (true) {
+				privateStep();
+				if (joined != null) {
+					if (joined.hasMoreElements()) {
+						mustStep = true;
+						return (T) joined.nextElement();
+					}
+					joined = null;
+					continue;
+				}
+				if (joinedIterator != null) {
+					if (joinedIterator.hasNext()) {
+						mustStep = true;
+						return (T) joinedIterator.next();
+					}
+					joinedIterator = null;
+					continue;
+				}
+				break;
+			}
+		}
 		if (!done)
 			mustStep = true;
+
 		return (T) nextValue;
 	}
 
@@ -96,8 +154,13 @@ public class YieldContextImpl<T> implements YieldContext<T>, Iterator<T>,
 	}
 
 	private void privateStep() {
+		hasNext = false;
 		doStep();
 		shouldRemove = false;
+		if (!hasNext && joinedIterator == null && joined == null) {
+			mustStep = false;
+			done = true;
+		}
 	}
 
 	@SuppressWarnings("unchecked")
@@ -168,6 +231,11 @@ public class YieldContextImpl<T> implements YieldContext<T>, Iterator<T>,
 
 	public boolean getShouldRemove() {
 		return shouldRemove;
+	}
+
+	@Override
+	public boolean resume() {
+		return step();
 	}
 
 }
