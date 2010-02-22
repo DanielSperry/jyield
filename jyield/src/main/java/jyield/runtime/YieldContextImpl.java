@@ -28,27 +28,41 @@ public class YieldContextImpl<T> extends Continuation implements
 		}
 	}
 
-	public YieldContext<T> ret(Object obj, int nextLine) {
+	public YieldContextImpl<T> ret(Object obj, int nextLine) {
 		this.nextLine = nextLine;
 		nextValue = obj;
 		hasNext = true;
 		return this;
 	}
 
-	public YieldContext<T> join(Enumeration<T> joined, int nextLine) {
+	public YieldContextImpl<T> suspend(int nextLine) {
+		this.nextLine = nextLine;
+		nextValue = null;
+		hasNext = true;
+		return this;
+	}
+
+	public YieldContextImpl<T> join(Enumeration<T> joined, int nextLine) {
 		this.joined = joined;
 		this.nextLine = nextLine;
 		return this;
 	}
 
-	public YieldContext<T> join(Iterable<T> joined, int nextLine) {
+	public YieldContextImpl<T> join(Iterable<T> joined, int nextLine) {
 		this.nextLine = nextLine;
 		this.joinedIterator = joined.iterator();
 		return this;
 	}
 
-	public YieldContext<T> join(Iterator<T> joined, int nextLine) {
+	public YieldContextImpl<T> join(Iterator<T> joined, int nextLine) {
 		this.joinedIterator = joined;
+		this.nextLine = nextLine;
+		return this;
+	}
+
+	@SuppressWarnings("unchecked")
+	public YieldContextImpl<T> join(Continuation joined, int nextLine) {
+		this.joinedIterator = (Iterator<T>) joined;
 		this.nextLine = nextLine;
 		return this;
 	}
@@ -57,7 +71,7 @@ public class YieldContextImpl<T> extends Continuation implements
 		return nextLine;
 	}
 
-	public YieldContext<T> done() {
+	public YieldContextImpl<T> done() {
 		hasNext = false;
 		mustStep = false;
 		done = true;

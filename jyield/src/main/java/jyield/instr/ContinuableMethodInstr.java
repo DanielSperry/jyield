@@ -36,6 +36,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import jyield.Continuation;
 import jyield.Yield;
 import jyield.runtime.YieldContext;
 import jyield.runtime.YieldContextImpl;
@@ -65,28 +66,37 @@ final class ContinuableMethodInstr extends MethodAdapter {
 			.getName().replace('.', '/');
 	private static final String YIELD_CONTEXT_CLASS = YieldContext.class
 			.getName().replace('.', '/');
+	private static final String CONTINUATION_CLASS = Continuation.class
+			.getName().replace('.', '/');
 	private static final String RET = "ret";
 	private static final String RET_DESC = "(Ljava/lang/Object;I)L"
-			+ YIELD_CONTEXT_CLASS + ";";
+			+ YIELD_CONTEXT_IMPL_CLASS + ";";
+	private static final String SUSPEND = "suspend";
+	private static final String SUSPEND_DESC = "(I)L"
+			+ YIELD_CONTEXT_IMPL_CLASS + ";";
 	private static final String JOIN = "join";
 	private static final String JOIN_DESC1 = "(L"
 			+ Iterable.class.getName().replace('.', '/') + ";I)L"
-			+ YIELD_CONTEXT_CLASS + ";";
+			+ YIELD_CONTEXT_IMPL_CLASS + ";";
 	private static final String JOIN_DESC2 = "(L"
 			+ Iterator.class.getName().replace('.', '/') + ";I)L"
-			+ YIELD_CONTEXT_CLASS + ";";
+			+ YIELD_CONTEXT_IMPL_CLASS + ";";
 	private static final String JOIN_DESC3 = "(L"
 			+ Enumeration.class.getName().replace('.', '/') + ";I)L"
-			+ YIELD_CONTEXT_CLASS + ";";
+			+ YIELD_CONTEXT_IMPL_CLASS + ";";
+	private static final String JOIN_DESC4 = "(L" + CONTINUATION_CLASS + ";I)L"
+			+ YIELD_CONTEXT_IMPL_CLASS + ";";
 	private static final String JOIN_DESC_PREFIX1 = "(L"
 			+ Iterable.class.getName().replace('.', '/');
 	private static final String JOIN_DESC_PREFIX2 = "(L"
 			+ Iterator.class.getName().replace('.', '/');
 	private static final String JOIN_DESC_PREFIX3 = "(L"
 			+ Enumeration.class.getName().replace('.', '/');
+	private static final String JOIN_DESC_PREFIX4 = "(L"
+			+ Continuation.class.getName().replace('.', '/');
 	// private static final String DONE = "done";
-	private static final String JVM_YIELD_CLASS_NAME = Yield.class.getName()
-			.replace('.', '/');
+	private static final String YIELD_CLASS = Yield.class.getName().replace(
+			'.', '/');
 
 	private String stepMethodDesc;
 	private final MethodNode mn;
@@ -183,10 +193,12 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		fmv.visitMethodInsn(INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS,
 				"getNextLine", "()I");
 
-		Label start = new Label();
-		fmv.visitTableSwitchInsn(1, retLabels.size(), start, retLabels
-				.toArray(new Label[retLabels.size()]));
-		fmv.visitLabel(start);
+		if (retLabels.size() > 0) {
+			Label start = new Label();
+			fmv.visitTableSwitchInsn(1, retLabels.size(), start, retLabels
+					.toArray(new Label[retLabels.size()]));
+			fmv.visitLabel(start);
+		}
 		emitLoadStoreLocals(true, false, ctxIdx, fmv, null, null, analyzer
 				.getFrames()[0]);
 
@@ -205,24 +217,33 @@ final class ContinuableMethodInstr extends MethodAdapter {
 			LabelNode ln = (LabelNode) retLabels.get(i).info;
 			MethodInsnNode mn = (MethodInsnNode) ln.getPrevious();
 			instructions.insertBefore(ln, new VarInsnNode(ALOAD, ctxIdx));
-			instructions.insertBefore(ln, new InsnNode(SWAP));
+			if (!SUSPEND.equals(mn.name)) {
+				instructions.insertBefore(ln, new InsnNode(SWAP));
+			}
 			instructions.insertBefore(ln, new IntInsnNode(SIPUSH, i + 1));
 			if (RET.equals(mn.name)) {
 				instructions.insertBefore(ln, new MethodInsnNode(INVOKEVIRTUAL,
-						YIELD_CONTEXT_IMPL_CLASS, "ret", RET_DESC));
+						YIELD_CONTEXT_IMPL_CLASS, RET, RET_DESC));
+			} else if (SUSPEND.equals(mn.name)) {
+				instructions.insertBefore(ln, new MethodInsnNode(INVOKEVIRTUAL,
+						YIELD_CONTEXT_IMPL_CLASS, SUSPEND, SUSPEND_DESC));
 			} else if (JOIN.equals(mn.name)) {
 				if (mn.desc.startsWith(JOIN_DESC_PREFIX1))
 					instructions.insertBefore(ln, new MethodInsnNode(
-							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, "join",
+							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, JOIN,
 							JOIN_DESC1));
 				else if (mn.desc.startsWith(JOIN_DESC_PREFIX2))
 					instructions.insertBefore(ln, new MethodInsnNode(
-							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, "join",
+							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, JOIN,
 							JOIN_DESC2));
 				else if (mn.desc.startsWith(JOIN_DESC_PREFIX3))
 					instructions.insertBefore(ln, new MethodInsnNode(
-							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, "join",
+							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, JOIN,
 							JOIN_DESC3));
+				else if (mn.desc.startsWith(JOIN_DESC_PREFIX4))
+					instructions.insertBefore(ln, new MethodInsnNode(
+							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, JOIN,
+							JOIN_DESC4));
 			}
 			Frame f = labelFrames.get(ln);
 			instructions.insert(ln, new VarInsnNode(ALOAD, ctxIdx));
@@ -377,12 +398,21 @@ final class ContinuableMethodInstr extends MethodAdapter {
 	public void visitMethodInsn(int opcode, String owner, String name,
 			String desc) {
 		super.visitMethodInsn(opcode, owner, name, desc);
-		if (opcode == INVOKESTATIC && owner.equals(JVM_YIELD_CLASS_NAME)) {
-			if (RET.equals(name) || JOIN.equals(name)) {
-				toRemove.add(mn.instructions.getLast());
-				Label label = new Label();
-				retLabels.add(label);
-				visitLabel(label);
+		if (opcode == INVOKESTATIC) {
+			if (owner.equals(YIELD_CLASS)) {
+				if (RET.equals(name) || JOIN.equals(name)) {
+					toRemove.add(mn.instructions.getLast());
+					Label label = new Label();
+					retLabels.add(label);
+					visitLabel(label);
+				}
+			} else if (owner.equals(CONTINUATION_CLASS)) {
+				if (SUSPEND.equals(name) || JOIN.equals(name)) {
+					toRemove.add(mn.instructions.getLast());
+					Label label = new Label();
+					retLabels.add(label);
+					visitLabel(label);
+				}
 			}
 		}
 	}

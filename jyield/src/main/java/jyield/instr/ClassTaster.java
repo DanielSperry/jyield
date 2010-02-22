@@ -7,7 +7,7 @@ import java.util.Enumeration;
 import java.util.Iterator;
 
 import jyield.Continuable;
-import jyield.runtime.YieldContext;
+import jyield.Continuation;
 
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -24,7 +24,7 @@ final class ClassTaster extends EmptyVisitor {
 	static final String SUFFIX3 = ")L"
 			+ Iterator.class.getName().replace('.', '/') + ";";
 	static final String SUFFIX4 = ")L"
-			+ YieldContext.class.getName().replace('.', '/') + ";";
+			+ Continuation.class.getName().replace('.', '/') + ";";
 
 	boolean rightReturn;
 	boolean rightAnnotation;
