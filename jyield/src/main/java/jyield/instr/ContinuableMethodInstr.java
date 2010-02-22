@@ -38,7 +38,6 @@ import java.util.Map;
 
 import jyield.Continuation;
 import jyield.Yield;
-import jyield.runtime.YieldContext;
 import jyield.runtime.YieldContextImpl;
 
 import org.objectweb.asm.ClassWriter;
@@ -63,8 +62,6 @@ import org.objectweb.asm.tree.analysis.Value;
 
 final class ContinuableMethodInstr extends MethodAdapter {
 	private static final String YIELD_CONTEXT_IMPL_CLASS = YieldContextImpl.class
-			.getName().replace('.', '/');
-	private static final String YIELD_CONTEXT_CLASS = YieldContext.class
 			.getName().replace('.', '/');
 	private static final String CONTINUATION_CLASS = Continuation.class
 			.getName().replace('.', '/');
