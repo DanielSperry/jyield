@@ -169,10 +169,11 @@
 								<property name="build.compiler" value="extJavac" />
 								<property name="target" value="${project.build.finalName}" />
 								<property name="builddir" value="${project.build.directory}" />
-								<property name="workdir" value="${project.build.directory}/test-dist/${target}" />
+								<property name="workdir"
+									value="${project.build.directory}/test-dist/${target}" />
 								<delete dir="${workdir}" failonerror="false" />
-								
-								<unzip src="${builddir}/${target}-dist.zip" dest="${builddir}/test-dist"/>
+
+								<unzip src="${builddir}/${target}-dist.zip" dest="${builddir}/test-dist" />
 								<javac srcdir="${workdir}/examples/basic" destdir="${workdir}/examples/basic"
 									classpath="${workdir}/${target}-jar-with-dependencies.jar"
 									debug="on" source="1.6" />
@@ -242,7 +243,27 @@
 					</uploads>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>build-helper-maven-plugin</artifactId>
+				<version>1.5</version>
+				<executions>
+					<execution>
+						<id>add-test-source</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>add-test-source</goal>
+						</goals>
+						<configuration>
+							<sources>
+								<source>examples/basic</source>
+							</sources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
+
 	</build>
 	<dependencies>
 		<dependency>
