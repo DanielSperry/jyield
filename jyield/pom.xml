@@ -4,10 +4,11 @@
 	<groupId>com.googlecode</groupId>
 	<artifactId>jyield</artifactId>
 	<packaging>jar</packaging>
-	<version>0.0.3</version>
+	<version>0.0.4</version>
 	<name>jyield</name>
 	<properties>
 		<maven.build.timestamp.format>yyyyMMdd-HHmm</maven.build.timestamp.format>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
 	<scm>
 		<connection>scm:svn:http://jyield.googlecode.com/svn/trunk/jyield</connection>
@@ -108,19 +109,6 @@
 
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-source-plugin</artifactId>
-				<executions>
-					<execution>
-						<id>attach-sources</id>
-						<goals>
-							<goal>jar</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
-
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
 				<executions>
 					<execution>
@@ -136,9 +124,18 @@
 				<artifactId>maven-assembly-plugin</artifactId>
 				<version>2.1</version>
 				<configuration>
+					<descriptorRefs>
+						<descriptorRef>
+							jar-with-dependencies
+		                </descriptorRef>
+						<descriptorRef>
+							src
+		                </descriptorRef>
+					</descriptorRefs>
+
 					<descriptors>
-						<descriptor>src/main/assembly/with-deps.xml
-						</descriptor>
+						<!--						<descriptor>src/main/assembly/with-deps.xml-->
+						<!--						</descriptor>-->
 						<descriptor>src/main/assembly/runtime.xml
 						</descriptor>
 						<descriptor>src/main/assembly/dist.xml
@@ -171,20 +168,20 @@
 							<tasks>
 								<property name="build.compiler" value="extJavac" />
 								<property name="target" value="${project.build.finalName}" />
-								<property name="workdir" value="${project.build.directory}/examples" />
+								<property name="builddir" value="${project.build.directory}" />
+								<property name="workdir" value="${project.build.directory}/test-dist/${target}" />
 								<delete dir="${workdir}" failonerror="false" />
-								<mkdir dir="${workdir}" />
-								<copy todir="${workdir}">
-									<fileset dir="examples" />
-								</copy>
-								<javac srcdir="${workdir}/basic" destdir="${workdir}/basic"
-									classpath="${workdir}/../${target}-with-deps.jar" debug="on"
-									source="1.6" />
-								<java className="Sample" fork="true" dir="${workdir}/basic"
+								
+								<unzip src="${builddir}/${target}-dist.zip" dest="${builddir}/test-dist"/>
+								<javac srcdir="${workdir}/examples/basic" destdir="${workdir}/examples/basic"
+									classpath="${workdir}/${target}-jar-with-dependencies.jar"
+									debug="on" source="1.6" />
+								<java className="Sample" fork="true" dir="${workdir}/examples/basic"
 									failonerror="true" outputproperty="sample.output01">
-									<jvmarg value="-javaagent:${workdir}/../${target}-with-deps.jar" />
+									<jvmarg
+										value="-javaagent:${workdir}/${target}-jar-with-dependencies.jar" />
 									<classpath>
-										<pathelement location="${workdir}/basic" />
+										<pathelement location="${workdir}/examples/basic" />
 									</classpath>
 								</java>
 								<echo message="${sample.output01}" />
@@ -196,17 +193,17 @@
 										</not>
 									</condition>
 								</fail>
-								<java jar="${workdir}/../${target}-with-deps.jar" fork="true"
-									dir="${workdir}/basic" failonerror="true">
+								<java jar="${workdir}/${target}-jar-with-dependencies.jar"
+									fork="true" dir="${workdir}/examples/basic" failonerror="true">
 									<arg value="--overwrite" />
 									<arg value="--verbose" />
 									<arg value="Sample.class" />
 								</java>
-								<java className="Sample" fork="true" dir="${workdir}/basic"
+								<java className="Sample" fork="true" dir="${workdir}/examples/basic"
 									failonerror="true" outputproperty="sample.output02">
 									<classpath>
-										<pathelement location="${workdir}/../${target}-runtime.jar" />
-										<pathelement location="${workdir}/basic" />
+										<pathelement location="${workdir}/${target}-runtime.jar" />
+										<pathelement location="${workdir}/examples/basic" />
 									</classpath>
 								</java>
 								<echo message="${sample.output02}" />
@@ -256,7 +253,27 @@
 		</dependency>
 		<dependency>
 			<groupId>asm</groupId>
-			<artifactId>asm-all</artifactId>
+			<artifactId>asm</artifactId>
+			<version>3.2</version>
+		</dependency>
+		<dependency>
+			<groupId>asm</groupId>
+			<artifactId>asm-analysis</artifactId>
+			<version>3.2</version>
+		</dependency>
+		<dependency>
+			<groupId>asm</groupId>
+			<artifactId>asm-commons</artifactId>
+			<version>3.2</version>
+		</dependency>
+		<dependency>
+			<groupId>asm</groupId>
+			<artifactId>asm-tree</artifactId>
+			<version>3.2</version>
+		</dependency>
+		<dependency>
+			<groupId>asm</groupId>
+			<artifactId>asm-util</artifactId>
 			<version>3.2</version>
 		</dependency>
 	</dependencies>

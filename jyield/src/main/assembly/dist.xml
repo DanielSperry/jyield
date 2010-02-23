@@ -51,7 +51,11 @@
 		<dependencySet>
 			<outputDirectory>lib/</outputDirectory>
 			<includes>
-				<include>asm:asm-all</include>
+				<include>asm:asm</include>
+				<include>asm:asm-analysis</include>
+				<include>asm:asm-commons</include>
+				<include>asm:asm-tree</include>
+				<include>asm:asm-util</include>
 			</includes>
 			<unpack>false</unpack>
 			<scope>runtime</scope>
