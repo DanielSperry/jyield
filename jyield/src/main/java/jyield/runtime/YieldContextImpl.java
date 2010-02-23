@@ -83,11 +83,13 @@ public class YieldContextImpl<T> extends Continuation implements
 			if (joined.hasMoreElements())
 				return true;
 			joined = null;
+			mustStep = true;
 		}
 		if (joinedIterator != null) {
 			if (joinedIterator.hasNext())
 				return true;
 			joinedIterator = null;
+			mustStep = true;
 		}
 		if (mustStep) {
 			while (true) {

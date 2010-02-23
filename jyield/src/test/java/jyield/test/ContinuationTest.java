@@ -15,16 +15,16 @@ public class ContinuationTest {
 	int proof;
 	private StringWriter sw = new StringWriter();
 
-//	@Test(timeout = 1000)
-//	public void testContinuation() {
-//		Continuation c = runStuff();
-//		println("returned a continuation");
-//		while (!c.isDone()) {
-//			c.resume();
-//			println("i am outside");
-//		}
-//		assertEquals(2134234, sw.hashCode());
-//	}
+	@Test
+	public void testContinuation() {
+		Continuation c = runStuff();
+		println("returned a continuation");
+		while (!c.isDone()) {
+			c.resume();
+			println("i am outside");
+		}
+		assertEquals(531392462, sw.toString().hashCode());
+	}
 
 	public void println(String s) {
 		System.out.println(s);
@@ -34,8 +34,9 @@ public class ContinuationTest {
 	@Continuable
 	public Continuation runStuff() {
 		System.out.println("started!");
-		for (int i = 0; i < 10; i++)
+		for (int i = 0; i < 10; i++) {
 			Continuation.join(echo(i));
+		}
 		return null;
 	}
 
