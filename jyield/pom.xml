@@ -109,6 +109,19 @@
 
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>attach-sources</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
 				<executions>
 					<execution>
@@ -124,18 +137,8 @@
 				<artifactId>maven-assembly-plugin</artifactId>
 				<version>2.1</version>
 				<configuration>
-					<descriptorRefs>
-						<descriptorRef>
-							jar-with-dependencies
-		                </descriptorRef>
-						<descriptorRef>
-							src
-		                </descriptorRef>
-					</descriptorRefs>
-
 					<descriptors>
-						<!--						<descriptor>src/main/assembly/with-deps.xml-->
-						<!--						</descriptor>-->
+						<descriptor>src/main/assembly/with-deps.xml</descriptor>
 						<descriptor>src/main/assembly/runtime.xml
 						</descriptor>
 						<descriptor>src/main/assembly/dist.xml
