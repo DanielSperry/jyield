@@ -3,6 +3,7 @@
  */
 package jyield.instr;
 
+import static org.objectweb.asm.Opcodes.*;
 import static org.objectweb.asm.Opcodes.ACC_PROTECTED;
 import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
@@ -99,11 +100,13 @@ final class ContinuableMethodInstr extends MethodAdapter {
 	private final MethodNode mn;
 	private final YieldClassInstr cv;
 	private Analyzer analyzer;
-	private String contextClassName;
 	private List<Label> retLabels = new ArrayList<Label>();
 	private List<AbstractInsnNode> toRemove = new ArrayList<AbstractInsnNode>();
 	private String stepMethodName;
 	private boolean isStatic;
+	private String contextClassName;
+	private String innerClassName;
+	private String accessMethodDesc;
 
 	ContinuableMethodInstr(YieldClassInstr cv, MethodNode mn) {
 		super(mn);
@@ -117,12 +120,19 @@ final class ContinuableMethodInstr extends MethodAdapter {
 	public void visitEnd() {
 		super.visitEnd();
 		// System.out.println(mn.name);
-		contextClassName = cv.name + "_YC_" + mn.name + "_"
-				+ Math.abs(mn.desc.hashCode());
 		stepMethodName = mn.name + "_yc_" + Math.abs(mn.desc.hashCode());
+		innerClassName = mn.name + "_yc_" + Math.abs(mn.desc.hashCode());
+		contextClassName = cv.name + "$" + innerClassName;
+
 		stepMethodDesc = "(L" + YIELD_CONTEXT_IMPL_CLASS + ";"
 				+ mn.desc.substring(mn.desc.indexOf(')'));
 
+		if (isStatic)
+			accessMethodDesc = "(L" + YIELD_CONTEXT_IMPL_CLASS + ";"
+					+ mn.desc.substring(mn.desc.indexOf(')'));
+		else
+			accessMethodDesc = "(L" + cv.name + ";L" + YIELD_CONTEXT_IMPL_CLASS
+					+ ";" + mn.desc.substring(mn.desc.indexOf(')'));
 		try {
 			analyzer.analyze(cv.name, mn);
 		} catch (AnalyzerException e) {
@@ -137,9 +147,17 @@ final class ContinuableMethodInstr extends MethodAdapter {
 	private void createYieldContextClass() {
 		ClassWriter ctxw = new ClassWriter(ClassWriter.COMPUTE_FRAMES
 				| ClassWriter.COMPUTE_MAXS);
+
+		ctxw.visit(V1_6, ACC_SUPER, contextClassName, null,
+				YIELD_CONTEXT_IMPL_CLASS, null);
+
+		// ctxw.visitSource("YieldTest_MockInstr_Test.java", null);
+
+		ctxw.visitInnerClass(contextClassName, cv.name, innerClassName,
+				ACC_PRIVATE + ACC_STATIC);
+
 		ctxw.visit(cv.version, ACC_PUBLIC, contextClassName, null,
 				YIELD_CONTEXT_IMPL_CLASS, null);
-		ctxw.visitEnd();
 		MethodVisitor cmv = ctxw.visitMethod(ACC_PUBLIC, "<init>",
 				"(ILjava/lang/Object;)V", null, null);
 		cmv.visitVarInsn(ALOAD, 0);
@@ -159,15 +177,11 @@ final class ContinuableMethodInstr extends MethodAdapter {
 			cmv.visitTypeInsn(CHECKCAST, cv.name);
 		}
 		cmv.visitVarInsn(ALOAD, 0);
-		if (!isStatic) {
-			cmv.visitMethodInsn(INVOKEVIRTUAL, cv.name, stepMethodName,
-					stepMethodDesc);
-		} else {
-			cmv.visitMethodInsn(INVOKESTATIC, cv.name, stepMethodName,
-					stepMethodDesc);
-		}
+		cmv.visitMethodInsn(INVOKESTATIC, cv.name, "access$" + stepMethodName,
+				accessMethodDesc);
 		cmv.visitInsn(ARETURN);
 		cmv.visitMaxs(3, 3);
+		ctxw.visitEnd();
 		cv.createdClasses.put(contextClassName, ctxw.toByteArray());
 		// cv.yinstr.loadClass(cv.loader, contextClassName.replace('/', '.'),
 		// ctxw
@@ -176,8 +190,34 @@ final class ContinuableMethodInstr extends MethodAdapter {
 
 	@SuppressWarnings("unchecked")
 	public void emitChangedMethod() {
+
+		// accessor
+		{
+			MethodVisitor mv = cv.underliningVisitor().visitMethod(
+					ACC_STATIC + ACC_SYNTHETIC, "access$" + stepMethodName,
+					accessMethodDesc, null, null);
+			mv.visitCode();
+			Label l0 = new Label();
+			mv.visitLabel(l0);
+			mv.visitLineNumber(26, l0);
+			mv.visitVarInsn(ALOAD, 0);
+			if (!isStatic) {
+				mv.visitVarInsn(ALOAD, 1);
+				mv.visitMethodInsn(INVOKESPECIAL, cv.name, stepMethodName,
+						stepMethodDesc);
+			} else {
+				mv.visitMethodInsn(INVOKESTATIC, cv.name, stepMethodName,
+						stepMethodDesc);
+			}
+
+			mv.visitInsn(ARETURN);
+			mv.visitMaxs(2, 2);
+			mv.visitEnd();
+		}
+
+		// step
 		MethodVisitor fmv = cv.underliningVisitor().visitMethod(
-				mn.access | ACC_PUBLIC,
+				(mn.access & ~(ACC_PUBLIC | ACC_PROTECTED)) | ACC_PRIVATE,
 				stepMethodName,
 				stepMethodDesc,
 				null,

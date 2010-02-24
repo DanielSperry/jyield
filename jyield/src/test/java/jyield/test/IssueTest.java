@@ -17,4 +17,27 @@ public class IssueTest {
 		return null;
 	}
 
+	@Continuable
+	public static Iterable<String> staticGenerator() {
+		return null;
+	}
+
+	
+	@Test(timeout = 1000)
+	public void staticMethodInstrumentationTest() {
+		assertFalse(staticGenerator().iterator().hasNext());
+	}
+	
+	
+	@Continuable
+	private Iterable<String> privateGenerator() {
+		return null;
+	}
+
+	
+	@Test(timeout = 1000)
+	public void privateMethodInstrumentationTest() {
+		assertFalse(privateGenerator().iterator().hasNext());
+	}
+
 }
