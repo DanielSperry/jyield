@@ -1,6 +1,8 @@
 package jyield.test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import jyield.Continuable;
 import jyield.Continuation;
 
@@ -90,6 +92,28 @@ public class ExceptionTest {
 			Continuation.suspend();
 		}
 		// return null;
+	}
+
+	@Test
+	public void dataFlowTest() {
+		Continuation c = dataFlow();
+		assertTrue(c.resume());
+		assertTrue(c.resume());
+		assertFalse(c.resume());
+	}
+
+	@Continuable
+	public Continuation dataFlow() {
+		try {
+			throw new RuntimeException("x");
+		} catch (NullPointerException e) {
+			Continuation.suspend();
+		} catch (RuntimeException e) {
+			Continuation.suspend();
+		} finally {
+			Continuation.suspend();
+		}
+		return null;
 	}
 
 }
