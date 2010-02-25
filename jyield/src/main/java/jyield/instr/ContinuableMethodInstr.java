@@ -335,13 +335,6 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		fmv.visitEnd();
 	}
 
-	@Override
-	public void visitFrame(int type, int local, Object[] local2, int stack,
-			Object[] stack2) {
-		super.visitFrame(type, local, local2, stack, stack2);
-		System.out.println(local2);
-	}
-
 	private void emitLoadStoreLocals(boolean emitLoad, boolean emitStore,
 			int contextLocalIdx, MethodVisitor fmv, InsnList instr,
 			AbstractInsnNode baseInstruction, Frame frame) {
