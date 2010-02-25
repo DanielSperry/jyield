@@ -1,6 +1,5 @@
 package jyield.instr;
 
-import java.io.PrintWriter;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
@@ -14,7 +13,6 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.commons.EmptyVisitor;
-import org.objectweb.asm.util.ASMifierClassVisitor;
 import org.objectweb.asm.util.CheckClassAdapter;
 
 public class YieldInstrumentation implements ClassFileTransformer {
@@ -59,10 +57,10 @@ public class YieldInstrumentation implements ClassFileTransformer {
 			cr.accept(cv, 0);
 			tr.transformedClassFileBuffer = cw.toByteArray();
 			checkClass(tr.transformedClassFileBuffer);
-			ASMifierClassVisitor asmifierClassVisitor = new ASMifierClassVisitor(
-					new PrintWriter(System.out));
-			new ClassReader(tr.transformedClassFileBuffer).accept(
-					asmifierClassVisitor, 0);
+//			ASMifierClassVisitor asmifierClassVisitor = new ASMifierClassVisitor(
+//					new PrintWriter(System.out));
+//			new ClassReader(tr.transformedClassFileBuffer).accept(
+//					asmifierClassVisitor, 0);
 			tr.createdClasses = cv.createdClasses;
 			return tr;
 		} catch (Exception ex) {
