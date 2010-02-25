@@ -3,10 +3,12 @@
  */
 package jyield.instr;
 
-import static org.objectweb.asm.Opcodes.*;
+import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
 import static org.objectweb.asm.Opcodes.ACC_PROTECTED;
 import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
+import static org.objectweb.asm.Opcodes.ACC_SUPER;
+import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
 import static org.objectweb.asm.Opcodes.ACONST_NULL;
 import static org.objectweb.asm.Opcodes.ALOAD;
 import static org.objectweb.asm.Opcodes.ARETURN;
@@ -29,6 +31,7 @@ import static org.objectweb.asm.Opcodes.NEW;
 import static org.objectweb.asm.Opcodes.RETURN;
 import static org.objectweb.asm.Opcodes.SIPUSH;
 import static org.objectweb.asm.Opcodes.SWAP;
+import static org.objectweb.asm.Opcodes.V1_6;
 
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -45,6 +48,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodAdapter;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
@@ -53,6 +57,8 @@ import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TryCatchBlockNode;
+import org.objectweb.asm.tree.TypeInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
@@ -62,6 +68,8 @@ import org.objectweb.asm.tree.analysis.Frame;
 import org.objectweb.asm.tree.analysis.Value;
 
 final class ContinuableMethodInstr extends MethodAdapter {
+	private static final String[] THROWABLE_EXCEPTION_LIST = new String[] { Throwable.class
+			.getName().replace('.', '/') };
 	private static final String YIELD_CONTEXT_IMPL_CLASS = YieldContextImpl.class
 			.getName().replace('.', '/');
 	private static final String CONTINUATION_CLASS = Continuation.class
@@ -113,7 +121,28 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		this.isStatic = (mn.access & ACC_STATIC) != 0;
 		this.cv = cv;
 		this.mn = mn;
-		this.analyzer = new Analyzer(new BasicInterpreter());
+		this.analyzer = new Analyzer(new BasicInterpreter() {
+			@Override
+			public Value newValue(Type type) {
+				if (type != null && type.getSort() == Type.OBJECT) {
+					return new BasicValue(type);
+				}
+				return super.newValue(type);
+			}
+
+			@Override
+			public Value merge(Value v, Value w) {
+				if (!v.equals(w)) {
+					Type t = ((BasicValue) v).getType();
+					Type u = ((BasicValue) w).getType();
+					if (t.getSort() == Type.OBJECT
+							&& u.getSort() == Type.OBJECT) {
+						return BasicValue.REFERENCE_VALUE;
+					}
+				}
+				return super.merge(v, w);
+			}
+		});
 	}
 
 	@Override
@@ -188,14 +217,13 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		// .toByteArray());
 	}
 
-	@SuppressWarnings("unchecked")
 	public void emitChangedMethod() {
 
 		// accessor
 		{
 			MethodVisitor mv = cv.underliningVisitor().visitMethod(
 					ACC_STATIC + ACC_SYNTHETIC, "access$" + stepMethodName,
-					accessMethodDesc, null, null);
+					accessMethodDesc, null, THROWABLE_EXCEPTION_LIST);
 			mv.visitCode();
 			Label l0 = new Label();
 			mv.visitLabel(l0);
@@ -218,11 +246,7 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		// step
 		MethodVisitor fmv = cv.underliningVisitor().visitMethod(
 				(mn.access & ~(ACC_PUBLIC | ACC_PROTECTED)) | ACC_PRIVATE,
-				stepMethodName,
-				stepMethodDesc,
-				null,
-				(String[]) mn.exceptions.toArray(new String[mn.exceptions
-						.size()]));
+				stepMethodName, stepMethodDesc, null, THROWABLE_EXCEPTION_LIST);
 		int ctxIdx = mn.maxLocals + 1;
 		fmv.visitVarInsn(ALOAD, isStatic ? 0 : 1);
 		fmv.visitVarInsn(ASTORE, ctxIdx);
@@ -242,6 +266,7 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		Map<LabelNode, Frame> labelFrames = new HashMap<LabelNode, Frame>();
 
 		InsnList instructions = mn.instructions;
+
 		for (int i = 0; i < instructions.size(); i++) {
 			AbstractInsnNode insn = instructions.get(i);
 			if (insn instanceof LabelNode) {
@@ -295,23 +320,37 @@ final class ContinuableMethodInstr extends MethodAdapter {
 				.getNext()) {
 			inst.accept(fmv);
 		}
-		fmv.visitInsn(ACONST_NULL);
-		fmv.visitInsn(ARETURN);
+		// fmv.visitInsn(ACONST_NULL);
+		// fmv.visitInsn(ARETURN);
 		for (int i = 0; i < mn.localVariables.size(); i++) {
 			LocalVariableNode n = (LocalVariableNode) mn.localVariables.get(i);
 			n.accept(fmv);
+		}
+		for (int i = 0; i < mn.tryCatchBlocks.size(); i++) {
+			TryCatchBlockNode tn = (TryCatchBlockNode) mn.tryCatchBlocks.get(i);
+			tn.accept(fmv);
 		}
 		// fmv.visitMaxs(3 + mn.maxStack, 4 + mn.maxLocals);
 		fmv.visitMaxs(3 + mn.maxStack, 4 + mn.maxLocals);
 		fmv.visitEnd();
 	}
 
+	@Override
+	public void visitFrame(int type, int local, Object[] local2, int stack,
+			Object[] stack2) {
+		super.visitFrame(type, local, local2, stack, stack2);
+		System.out.println(local2);
+	}
+
 	private void emitLoadStoreLocals(boolean emitLoad, boolean emitStore,
 			int contextLocalIdx, MethodVisitor fmv, InsnList instr,
 			AbstractInsnNode baseInstruction, Frame frame) {
 		// System.out.println(":::");
+		if(frame==null) {
+			return;
+		}
 		for (int j = (isStatic ? 0 : 1), ls = frame.getLocals(); j < ls; j++) {
-			Value local = frame.getLocal(j);
+			BasicValue local = (BasicValue) frame.getLocal(j);
 			// System.out.println(local);
 			int bLoadOpc;
 			String bStoreFunc, bStoreDesc;
@@ -325,13 +364,6 @@ final class ContinuableMethodInstr extends MethodAdapter {
 					aStoreOpc = ISTORE;
 					aLoadFunc = "loadInt";
 					aLoadDesc = "(I)I";
-				} else if (local == BasicValue.REFERENCE_VALUE) {
-					bLoadOpc = ALOAD;
-					bStoreFunc = "storeObject";
-					bStoreDesc = "(ILjava/lang/Object;)V";
-					aStoreOpc = ASTORE;
-					aLoadFunc = "loadObject";
-					aLoadDesc = "(I)Ljava/lang/Object;";
 				} else if (local == BasicValue.FLOAT_VALUE) {
 					bLoadOpc = FLOAD;
 					bStoreFunc = "storeFloat";
@@ -353,6 +385,15 @@ final class ContinuableMethodInstr extends MethodAdapter {
 					aStoreOpc = LSTORE;
 					aLoadFunc = "loadLong";
 					aLoadDesc = "(I)J";
+				} else if (local == BasicValue.REFERENCE_VALUE
+						|| (local != null && local.getType() != null && local
+								.getType().getSort() == Type.OBJECT)) {
+					bLoadOpc = ALOAD;
+					bStoreFunc = "storeObject";
+					bStoreDesc = "(ILjava/lang/Object;)V";
+					aStoreOpc = ASTORE;
+					aLoadFunc = "loadObject";
+					aLoadDesc = "(I)Ljava/lang/Object;";
 				} else
 					continue;
 			} else
@@ -369,6 +410,11 @@ final class ContinuableMethodInstr extends MethodAdapter {
 					instr
 							.insert(baseInstruction, new VarInsnNode(aStoreOpc,
 									j));
+					if (bLoadOpc == ALOAD) {
+						instr.insert(baseInstruction, new TypeInsnNode(
+								CHECKCAST, ((BasicValue) local).getType()
+										.getInternalName()));
+					}
 					instr.insert(baseInstruction, new MethodInsnNode(
 							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, aLoadFunc,
 							aLoadDesc));
