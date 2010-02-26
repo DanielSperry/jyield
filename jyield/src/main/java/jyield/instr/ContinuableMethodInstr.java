@@ -3,7 +3,7 @@
  */
 package jyield.instr;
 
-import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
+import static org.objectweb.asm.Opcodes.*;
 import static org.objectweb.asm.Opcodes.ACC_PROTECTED;
 import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
@@ -142,7 +142,17 @@ final class ContinuableMethodInstr extends MethodAdapter {
 				}
 				return super.merge(v, w);
 			}
-		});
+		}) {
+			@Override
+			protected Frame newFrame(Frame src) {
+				return new DataFlowFrame(src);
+			}
+
+			@Override
+			protected Frame newFrame(int locals, int stack) {
+				return new DataFlowFrame(locals, stack);
+			}
+		};
 	}
 
 	@Override
@@ -165,6 +175,7 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		try {
 			analyzer.analyze(cv.name, mn);
 		} catch (AnalyzerException e) {
+			e.printStackTrace(System.err);
 			// /throw new RuntimeException(e);
 		}
 		emitReplacedMethod();
@@ -308,6 +319,23 @@ final class ContinuableMethodInstr extends MethodAdapter {
 							JOIN_DESC4));
 			}
 			Frame f = labelFrames.get(ln);
+
+			// Deal with synchronized blocks
+			if (f instanceof DataFlowFrame) {
+				DataFlowFrame df = (DataFlowFrame) f;
+				if (df.monitors != null)
+					for (int k = 0; k < df.monitors.size(); k++) {
+						int local = df.monitors.get(k);
+						instructions.insertBefore(ln, new VarInsnNode(ALOAD,
+								local));
+						instructions
+								.insertBefore(ln, new InsnNode(MONITOREXIT));
+						// rev order
+						instructions.insert(ln, new InsnNode(MONITORENTER));
+						instructions.insert(ln, new VarInsnNode(ALOAD, local));
+					}
+			}
+
 			instructions.insert(ln, new VarInsnNode(ALOAD, ctxIdx));
 			emitLoadStoreLocals(true, true, ctxIdx, null, instructions, ln, f);
 			instructions.insertBefore(ln, new InsnNode(ARETURN));
@@ -339,7 +367,7 @@ final class ContinuableMethodInstr extends MethodAdapter {
 			int contextLocalIdx, MethodVisitor fmv, InsnList instr,
 			AbstractInsnNode baseInstruction, Frame frame) {
 		// System.out.println(":::");
-		if(frame==null) {
+		if (frame == null) {
 			return;
 		}
 		for (int j = (isStatic ? 0 : 1), ls = frame.getLocals(); j < ls; j++) {
