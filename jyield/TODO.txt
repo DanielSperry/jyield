@@ -9,3 +9,5 @@
   * Better integration with jdt
   * Sample eclipse projects
   * Sample maven projects
+  * Upload to a global maven repository 
+  
