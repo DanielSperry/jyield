@@ -6,7 +6,7 @@ import java.util.Iterator;
 import jyield.Continuation;
 
 public class YieldContextImpl<T> extends Continuation implements
-		YieldContext<T>, Iterator<T> {
+		YieldContext<T>, Iterator<T>, ContinuationContext {
 	protected Object target;
 	private Object[] objectVariables;
 	private long[] primitiveVariables;
