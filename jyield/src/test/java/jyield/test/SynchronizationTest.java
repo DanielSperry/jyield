@@ -10,9 +10,10 @@ import org.junit.Test;
 public class SynchronizationTest {
 
 	Object a = new Object();
+	Object b = new Object();
 
 	@Test
-	public void testApp() {
+	public void simpleSynchronized() {
 		Continuation c = synchBlock();
 		assertTrue(c.resume());
 		assertFalse(c.resume());
@@ -22,6 +23,24 @@ public class SynchronizationTest {
 	public Continuation synchBlock() {
 		synchronized (a) {
 			Continuation.suspend();
+		}
+		return null;
+	}
+
+	@Test
+	public void nestedSynchronized() {
+		Continuation c = nestedSynchBlocks();
+		assertTrue(c.resume());
+		assertFalse(c.resume());
+	}
+
+	@Continuable
+	public Continuation nestedSynchBlocks() {
+		synchronized (a) {
+			// Continuation.suspend();
+			synchronized (b) {
+				Continuation.suspend();
+			}
 		}
 		return null;
 	}

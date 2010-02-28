@@ -3,7 +3,7 @@
  */
 package jyield.instr;
 
-import static org.objectweb.asm.Opcodes.*;
+import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
 import static org.objectweb.asm.Opcodes.ACC_PROTECTED;
 import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
@@ -20,6 +20,7 @@ import static org.objectweb.asm.Opcodes.DUP;
 import static org.objectweb.asm.Opcodes.FLOAD;
 import static org.objectweb.asm.Opcodes.FSTORE;
 import static org.objectweb.asm.Opcodes.GETFIELD;
+import static org.objectweb.asm.Opcodes.GOTO;
 import static org.objectweb.asm.Opcodes.ILOAD;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
@@ -27,6 +28,8 @@ import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
 import static org.objectweb.asm.Opcodes.ISTORE;
 import static org.objectweb.asm.Opcodes.LLOAD;
 import static org.objectweb.asm.Opcodes.LSTORE;
+import static org.objectweb.asm.Opcodes.MONITORENTER;
+import static org.objectweb.asm.Opcodes.MONITOREXIT;
 import static org.objectweb.asm.Opcodes.NEW;
 import static org.objectweb.asm.Opcodes.RETURN;
 import static org.objectweb.asm.Opcodes.SIPUSH;
@@ -36,9 +39,11 @@ import static org.objectweb.asm.Opcodes.V1_6;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import jyield.Continuation;
 import jyield.Yield;
@@ -51,15 +56,11 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.InsnNode;
-import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TryCatchBlockNode;
-import org.objectweb.asm.tree.TypeInsnNode;
-import org.objectweb.asm.tree.VarInsnNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.BasicInterpreter;
@@ -109,7 +110,7 @@ final class ContinuableMethodInstr extends MethodAdapter {
 	private final YieldClassInstr cv;
 	private Analyzer analyzer;
 	private List<Label> retLabels = new ArrayList<Label>();
-	private List<AbstractInsnNode> toRemove = new ArrayList<AbstractInsnNode>();
+	private Set<AbstractInsnNode> toRemove = new HashSet<AbstractInsnNode>();
 	private String stepMethodName;
 	private boolean isStatic;
 	private String contextClassName;
@@ -132,10 +133,10 @@ final class ContinuableMethodInstr extends MethodAdapter {
 
 			@Override
 			public Value merge(Value v, Value w) {
-				if (!v.equals(w)) {
+				if (v != w && v != null && w != null && !v.equals(w)) {
 					Type t = ((BasicValue) v).getType();
 					Type u = ((BasicValue) w).getType();
-					if (t.getSort() == Type.OBJECT
+					if (t != null && u != null && t.getSort() == Type.OBJECT
 							&& u.getSort() == Type.OBJECT) {
 						return BasicValue.REFERENCE_VALUE;
 					}
@@ -254,26 +255,6 @@ final class ContinuableMethodInstr extends MethodAdapter {
 			mv.visitEnd();
 		}
 
-		// step
-		MethodVisitor fmv = cv.underliningVisitor().visitMethod(
-				(mn.access & ~(ACC_PUBLIC | ACC_PROTECTED)) | ACC_PRIVATE,
-				stepMethodName, stepMethodDesc, null, THROWABLE_EXCEPTION_LIST);
-		int ctxIdx = mn.maxLocals + 1;
-		fmv.visitVarInsn(ALOAD, isStatic ? 0 : 1);
-		fmv.visitVarInsn(ASTORE, ctxIdx);
-		fmv.visitVarInsn(ALOAD, ctxIdx);
-		fmv.visitMethodInsn(INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS,
-				"getNextLine", "()I");
-
-		if (retLabels.size() > 0) {
-			Label start = new Label();
-			fmv.visitTableSwitchInsn(1, retLabels.size(), start, retLabels
-					.toArray(new Label[retLabels.size()]));
-			fmv.visitLabel(start);
-		}
-		emitLoadStoreLocals(true, false, ctxIdx, fmv, null, null, analyzer
-				.getFrames()[0]);
-
 		Map<LabelNode, Frame> labelFrames = new HashMap<LabelNode, Frame>();
 
 		InsnList instructions = mn.instructions;
@@ -285,71 +266,98 @@ final class ContinuableMethodInstr extends MethodAdapter {
 				labelFrames.put((LabelNode) insn, f);
 			}
 		}
+		int ctxIdx = mn.maxLocals + 1;
+		// step
+		MethodVisitor fmv = cv.underliningVisitor().visitMethod(
+				(mn.access & ~(ACC_PUBLIC | ACC_PROTECTED)) | ACC_PRIVATE,
+				stepMethodName, stepMethodDesc, null, THROWABLE_EXCEPTION_LIST);
 
-		for (int i = 0; i < retLabels.size(); i++) {
-			LabelNode ln = (LabelNode) retLabels.get(i).info;
-			MethodInsnNode mn = (MethodInsnNode) ln.getPrevious();
-			instructions.insertBefore(ln, new VarInsnNode(ALOAD, ctxIdx));
-			if (!SUSPEND.equals(mn.name)) {
-				instructions.insertBefore(ln, new InsnNode(SWAP));
+		fmv.visitVarInsn(ALOAD, isStatic ? 0 : 1);
+		fmv.visitVarInsn(ASTORE, ctxIdx);
+		fmv.visitVarInsn(ALOAD, ctxIdx);
+		fmv.visitMethodInsn(INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS,
+				"getNextLine", "()I");
+		Label[] enterLabels = null;
+		Label[] exitLabels = null;
+		Map<LabelNode, Integer> sRetLabels = new HashMap<LabelNode, Integer>();
+		if (retLabels.size() > 0) {
+			Label start = new Label();
+			enterLabels = new Label[retLabels.size()];
+			exitLabels = new Label[retLabels.size()];
+			for (int i = 0; i < retLabels.size(); i++) {
+				enterLabels[i] = new Label();
+				exitLabels[i] = new Label();
+				sRetLabels.put((LabelNode) retLabels.get(i).info, i);
 			}
-			instructions.insertBefore(ln, new IntInsnNode(SIPUSH, i + 1));
-			if (RET.equals(mn.name)) {
-				instructions.insertBefore(ln, new MethodInsnNode(INVOKEVIRTUAL,
-						YIELD_CONTEXT_IMPL_CLASS, RET, RET_DESC));
-			} else if (SUSPEND.equals(mn.name)) {
-				instructions.insertBefore(ln, new MethodInsnNode(INVOKEVIRTUAL,
-						YIELD_CONTEXT_IMPL_CLASS, SUSPEND, SUSPEND_DESC));
-			} else if (JOIN.equals(mn.name)) {
-				if (mn.desc.startsWith(JOIN_DESC_PREFIX1))
-					instructions.insertBefore(ln, new MethodInsnNode(
-							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, JOIN,
-							JOIN_DESC1));
-				else if (mn.desc.startsWith(JOIN_DESC_PREFIX2))
-					instructions.insertBefore(ln, new MethodInsnNode(
-							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, JOIN,
-							JOIN_DESC2));
-				else if (mn.desc.startsWith(JOIN_DESC_PREFIX3))
-					instructions.insertBefore(ln, new MethodInsnNode(
-							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, JOIN,
-							JOIN_DESC3));
-				else if (mn.desc.startsWith(JOIN_DESC_PREFIX4))
-					instructions.insertBefore(ln, new MethodInsnNode(
-							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, JOIN,
-							JOIN_DESC4));
-			}
-			Frame f = labelFrames.get(ln);
+			fmv.visitTableSwitchInsn(1, enterLabels.length, start, enterLabels);
+			fmv.visitLabel(start);
+			emitLoadStoreLocals(true, false, ctxIdx, fmv,
+					analyzer.getFrames()[0]);
+			Label defaultStart = new Label();
+			fmv.visitJumpInsn(GOTO, defaultStart);
+			for (int i = 0; i < enterLabels.length; i++) {
+				// enter
+				fmv.visitLabel(enterLabels[i]);
+				Label ln = retLabels.get(i);
+				Frame frame = labelFrames.get(ln.info);
+				emitLoadStoreLocals(true, false, ctxIdx, fmv, frame);
+				fmv.visitVarInsn(ALOAD, ctxIdx);
+				fmv.visitJumpInsn(GOTO, ln);
+				// exit
+				fmv.visitLabel(exitLabels[i]);
+				emitLoadStoreLocals(false, true, ctxIdx, fmv, frame);
+				fmv.visitVarInsn(ALOAD, ctxIdx);
+				fmv.visitInsn(ARETURN);
 
-			// Deal with synchronized blocks
-			if (f instanceof DataFlowFrame) {
-				DataFlowFrame df = (DataFlowFrame) f;
-				if (df.monitors != null)
-					for (int k = 0; k < df.monitors.size(); k++) {
-						int local = df.monitors.get(k);
-						instructions.insertBefore(ln, new VarInsnNode(ALOAD,
-								local));
-						instructions
-								.insertBefore(ln, new InsnNode(MONITOREXIT));
-						// rev order
-						instructions.insert(ln, new InsnNode(MONITORENTER));
-						instructions.insert(ln, new VarInsnNode(ALOAD, local));
-					}
 			}
+			fmv.visitLabel(defaultStart);
 
-			instructions.insert(ln, new VarInsnNode(ALOAD, ctxIdx));
-			emitLoadStoreLocals(true, true, ctxIdx, null, instructions, ln, f);
-			instructions.insertBefore(ln, new InsnNode(ARETURN));
+		} else {
+			emitLoadStoreLocals(true, false, ctxIdx, fmv,
+					analyzer.getFrames()[0]);
 		}
 
-		for (AbstractInsnNode insn : toRemove) {
-			instructions.remove(insn);
-		}
 		for (AbstractInsnNode inst = instructions.getFirst(); inst != null; inst = inst
 				.getNext()) {
-			inst.accept(fmv);
+			Integer idx = sRetLabels.get(inst);
+			if (idx == null) {
+				if (!toRemove.contains(inst)) {
+					inst.accept(fmv);
+				}
+			} else {
+				LabelNode ln = (LabelNode) inst;
+				MethodInsnNode mn = (MethodInsnNode) ln.getPrevious();
+				fmv.visitVarInsn(ALOAD, ctxIdx);
+				if (SUSPEND.equals(mn.name)) {
+					fmv.visitIntInsn(SIPUSH, idx + 1);
+					fmv.visitMethodInsn(INVOKEVIRTUAL,
+							YIELD_CONTEXT_IMPL_CLASS, SUSPEND, SUSPEND_DESC);
+				} else {
+					fmv.visitInsn(SWAP);
+					fmv.visitIntInsn(SIPUSH, idx + 1);
+					if (RET.equals(mn.name)) {
+						fmv.visitMethodInsn(INVOKEVIRTUAL,
+								YIELD_CONTEXT_IMPL_CLASS, RET, RET_DESC);
+					} else if (JOIN.equals(mn.name)) {
+						if (mn.desc.startsWith(JOIN_DESC_PREFIX1))
+							fmv.visitMethodInsn(INVOKEVIRTUAL,
+									YIELD_CONTEXT_IMPL_CLASS, JOIN, JOIN_DESC1);
+						else if (mn.desc.startsWith(JOIN_DESC_PREFIX2))
+							fmv.visitMethodInsn(INVOKEVIRTUAL,
+									YIELD_CONTEXT_IMPL_CLASS, JOIN, JOIN_DESC2);
+						else if (mn.desc.startsWith(JOIN_DESC_PREFIX3))
+							fmv.visitMethodInsn(INVOKEVIRTUAL,
+									YIELD_CONTEXT_IMPL_CLASS, JOIN, JOIN_DESC3);
+						else if (mn.desc.startsWith(JOIN_DESC_PREFIX4))
+							fmv.visitMethodInsn(INVOKEVIRTUAL,
+									YIELD_CONTEXT_IMPL_CLASS, JOIN, JOIN_DESC4);
+					}
+				}
+				fmv.visitJumpInsn(GOTO, exitLabels[idx]);
+				inst.accept(fmv);
+			}
 		}
-		// fmv.visitInsn(ACONST_NULL);
-		// fmv.visitInsn(ARETURN);
+
 		for (int i = 0; i < mn.localVariables.size(); i++) {
 			LocalVariableNode n = (LocalVariableNode) mn.localVariables.get(i);
 			n.accept(fmv);
@@ -358,14 +366,12 @@ final class ContinuableMethodInstr extends MethodAdapter {
 			TryCatchBlockNode tn = (TryCatchBlockNode) mn.tryCatchBlocks.get(i);
 			tn.accept(fmv);
 		}
-		// fmv.visitMaxs(3 + mn.maxStack, 4 + mn.maxLocals);
 		fmv.visitMaxs(3 + mn.maxStack, 4 + mn.maxLocals);
 		fmv.visitEnd();
 	}
 
 	private void emitLoadStoreLocals(boolean emitLoad, boolean emitStore,
-			int contextLocalIdx, MethodVisitor fmv, InsnList instr,
-			AbstractInsnNode baseInstruction, Frame frame) {
+			int contextLocalIdx, MethodVisitor fmv, Frame frame) {
 		// System.out.println(":::");
 		if (frame == null) {
 			return;
@@ -420,50 +426,41 @@ final class ContinuableMethodInstr extends MethodAdapter {
 			} else
 				continue;
 			if (emitLoad) {
-				if (fmv != null) {
-					fmv.visitVarInsn(ALOAD, contextLocalIdx);
-					fmv.visitIntInsn(SIPUSH, j);
-					fmv.visitMethodInsn(INVOKEVIRTUAL,
-							YIELD_CONTEXT_IMPL_CLASS, aLoadFunc, aLoadDesc);
-					fmv.visitVarInsn(aStoreOpc, j);
-				} else {
-					// don't mind this nightmarish inverted order
-					instr
-							.insert(baseInstruction, new VarInsnNode(aStoreOpc,
-									j));
-					if (bLoadOpc == ALOAD) {
-						instr.insert(baseInstruction, new TypeInsnNode(
-								CHECKCAST, ((BasicValue) local).getType()
-										.getInternalName()));
-					}
-					instr.insert(baseInstruction, new MethodInsnNode(
-							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS, aLoadFunc,
-							aLoadDesc));
-					instr.insert(baseInstruction, new IntInsnNode(SIPUSH, j));
-					instr.insert(baseInstruction, new VarInsnNode(ALOAD,
-							contextLocalIdx));
+				fmv.visitVarInsn(ALOAD, contextLocalIdx);
+				fmv.visitIntInsn(SIPUSH, j);
+				fmv.visitMethodInsn(INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS,
+						aLoadFunc, aLoadDesc);
+				if (bLoadOpc == ALOAD && local != BasicValue.REFERENCE_VALUE) {
+					fmv.visitTypeInsn(CHECKCAST, ((BasicValue) local).getType()
+							.getInternalName());
 				}
+				fmv.visitVarInsn(aStoreOpc, j);
 			}
 			if (emitStore) {
-				if (fmv != null) {
-					fmv.visitVarInsn(ALOAD, contextLocalIdx);
-					fmv.visitIntInsn(SIPUSH, j);
-					fmv.visitVarInsn(bLoadOpc, j);
-					fmv.visitMethodInsn(INVOKEVIRTUAL,
-							YIELD_CONTEXT_IMPL_CLASS, bStoreFunc, bStoreDesc);
-				} else {
-					instr.insertBefore(baseInstruction, new VarInsnNode(ALOAD,
-							contextLocalIdx));
-					instr.insertBefore(baseInstruction, new IntInsnNode(SIPUSH,
-							j));
-					instr.insertBefore(baseInstruction, new VarInsnNode(
-							bLoadOpc, j));
-					instr.insertBefore(baseInstruction, new MethodInsnNode(
-							INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS,
-							bStoreFunc, bStoreDesc));
-				}
+				fmv.visitVarInsn(ALOAD, contextLocalIdx);
+				fmv.visitIntInsn(SIPUSH, j);
+				fmv.visitVarInsn(bLoadOpc, j);
+				fmv.visitMethodInsn(INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS,
+						bStoreFunc, bStoreDesc);
 			}
 
+		}
+
+		// Deal with synchronized blocks
+		if (frame instanceof DataFlowFrame) {
+			DataFlowFrame df = (DataFlowFrame) frame;
+			if (df.monitors != null)
+				for (int k = 0; k < df.monitors.size(); k++) {
+					int local = df.monitors.get(k);
+					if (emitStore) {
+						fmv.visitVarInsn(ALOAD, local);
+						fmv.visitInsn(MONITOREXIT);
+					}
+					if (emitLoad) {
+						fmv.visitVarInsn(ALOAD, local);
+						fmv.visitInsn(MONITORENTER);
+					}
+				}
 		}
 	}
 
@@ -490,7 +487,7 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		int ctxIdx = mn.maxLocals + 1;
 		fmv.visitVarInsn(ASTORE, ctxIdx);
 		Frame frame = analyzer.getFrames()[0];
-		emitLoadStoreLocals(false, true, ctxIdx, fmv, null, null, frame);
+		emitLoadStoreLocals(false, true, ctxIdx, fmv, frame);
 
 		fmv.visitVarInsn(ALOAD, ctxIdx);
 		fmv.visitInsn(ARETURN);
