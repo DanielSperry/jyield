@@ -449,18 +449,22 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		// Deal with synchronized blocks
 		if (frame instanceof DataFlowFrame) {
 			DataFlowFrame df = (DataFlowFrame) frame;
-			if (df.monitors != null)
-				for (int k = 0; k < df.monitors.size(); k++) {
-					int local = df.monitors.get(k);
-					if (emitStore) {
+			if (df.monitors != null) {
+				if (emitStore) {
+					for (int k = df.monitors.size(); --k >= 0;) {
+						int local = df.monitors.get(k);
 						fmv.visitVarInsn(ALOAD, local);
 						fmv.visitInsn(MONITOREXIT);
 					}
-					if (emitLoad) {
+				}
+				if (emitLoad) {
+					for (int k = 0; k < df.monitors.size(); k++) {
+						int local = df.monitors.get(k);
 						fmv.visitVarInsn(ALOAD, local);
 						fmv.visitInsn(MONITORENTER);
 					}
 				}
+			}
 		}
 	}
 
