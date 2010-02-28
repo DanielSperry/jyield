@@ -7,3 +7,5 @@
   * Ant task
   * Live demo
   * Better integration with jdt
+  * Sample eclipse projects
+  * Sample maven projects
