@@ -1,0 +1,9 @@
+= jyield todo list =
+
+  * Wiki page documenting eclipse usage
+  * Wiki page documenting maven usage
+  * Document the API
+  * Wiki page documenting ant usage
+  * Ant task
+  * Live demo
+  * Better integration with jdt
