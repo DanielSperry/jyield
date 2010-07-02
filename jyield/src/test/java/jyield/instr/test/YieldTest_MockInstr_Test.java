@@ -22,7 +22,7 @@ public class YieldTest_MockInstr_Test {
 		return new YieldTest_MockInstr_produceString(0, this);
 	}
 
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings("rawtypes")
 	private Enumeration _produceString_step(YieldContextImpl ye) {
 		switch (ye.getNextLine()) {
 		case 0:
@@ -36,17 +36,21 @@ public class YieldTest_MockInstr_Test {
 		}
 		return Yield.done();
 	}
-	
-	private static class YieldTest_MockInstr_produceString extends YieldContextImpl<String> {
+
+	private static class YieldTest_MockInstr_produceString extends
+			YieldContextImpl<String> {
+
+		private static final long serialVersionUID = 1L;
 
 		public YieldTest_MockInstr_produceString(int localsCount, Object target) {
 			super(localsCount, target);
 		}
 
-		@SuppressWarnings("unchecked")
+		@SuppressWarnings({ "rawtypes" })
 		@Override
 		protected Enumeration doStep() {
-			return ((YieldTest_MockInstr_Test) target)._produceString_step(this);
+			return ((YieldTest_MockInstr_Test) target)
+					._produceString_step(this);
 		}
 
 	}

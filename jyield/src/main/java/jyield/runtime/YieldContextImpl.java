@@ -182,7 +182,7 @@ public class YieldContextImpl<T> extends Continuation implements
 		}
 	}
 
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings("rawtypes")
 	protected Enumeration doStep() {
 		// must be overidden!
 		return this;
