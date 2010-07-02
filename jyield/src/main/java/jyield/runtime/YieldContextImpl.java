@@ -1,12 +1,15 @@
 package jyield.runtime;
 
+import java.io.Serializable;
 import java.util.Enumeration;
 import java.util.Iterator;
 
 import jyield.Continuation;
 
 public class YieldContextImpl<T> extends Continuation implements
-		YieldContext<T>, Iterator<T>, ContinuationContext {
+		YieldContext<T>, Iterator<T>, ContinuationContext, Serializable {
+	private static final long serialVersionUID = 1L;
+	
 	protected Object target;
 	private Object[] objectVariables;
 	private long[] primitiveVariables;
