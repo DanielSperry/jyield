@@ -1,6 +1,3 @@
-/**
- * 
- */
 package jyield.instr;
 
 import java.util.HashMap;
@@ -11,6 +8,14 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.tree.MethodNode;
 
+
+/**
+ * Asm ClassAdapter that transforms the bytecode as it visits it.
+ * YieldClassInstr replaces the @Continuable methods with stubs that 
+ * create specialized instances of YieldContext.
+ * 
+ * @author Daniel Sperry 2010
+ */
 public class YieldClassInstr extends ClassAdapter {
 	int version;
 	String name;

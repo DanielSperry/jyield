@@ -9,6 +9,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+/**
+ * Performs offline byte code transformation.
+ * After the transformation classes may be deployed without the -javaagent 
+ * parameter and with a smaller runtime library.
+ * 
+ * @author Daniel Sperry 2010
+ */
 public class Instrument {
 
 	private Properties options = new Properties();

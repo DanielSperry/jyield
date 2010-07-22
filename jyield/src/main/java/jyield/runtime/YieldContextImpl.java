@@ -6,6 +6,9 @@ import java.util.Iterator;
 
 import jyield.Continuation;
 
+/**
+ * Subclasses of YieldContextImpl are returned by the transformed @Continuable methods. 
+ */
 public class YieldContextImpl<T> extends Continuation implements
 		YieldContext<T>, Iterator<T>, ContinuationContext, Serializable {
 	private static final long serialVersionUID = 1L;

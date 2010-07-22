@@ -15,6 +15,11 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.commons.EmptyVisitor;
 import org.objectweb.asm.util.CheckClassAdapter;
 
+/**
+ * ClassFileTransformer used by the online instrumentation process.
+ * 
+ * @author Daniel Sperry 2010
+ */
 public class YieldInstrumentation implements ClassFileTransformer {
 
 	ConcurrentHashMap<String, byte[]> newClasses = new ConcurrentHashMap<String, byte[]>();
@@ -114,6 +119,9 @@ public class YieldInstrumentation implements ClassFileTransformer {
 		return newClasses;
 	}
 
+	/**
+	 * This method is called by the jvm as result of using the -javaagent parameter.
+	 */
 	public static void premain(String agentArguments,
 			Instrumentation instrumentation) {
 		// System.out.println("jyield instrumentation!");
