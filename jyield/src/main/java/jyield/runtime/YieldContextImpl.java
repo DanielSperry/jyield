@@ -127,10 +127,18 @@ public class YieldContextImpl<T> extends Continuation implements
 		return this;
 	}
 
+	/**
+	 * Used in a switch table by the transformed coroutines.
+	 * 
+	 * @return the next resume point.
+	 */
 	public int getNextLine() {
 		return nextLine;
 	}
 
+	/**
+	 * Called by the transformed coroutines before they exit.
+	 */
 	public YieldContextImpl<T> done() {
 		hasNext = false;
 		mustStep = false;
@@ -245,22 +253,72 @@ public class YieldContextImpl<T> extends Continuation implements
 		return this;
 	}
 
+	/**
+	 * Stores an integer from the local frame. Due to the jvm design this method
+	 * is also used to store bytes, chars, shorts and booleans.
+	 * <p>
+	 * Called by the instrumented method when yielding a value or before the
+	 * Continuation.suspend()
+	 * 
+	 * @param index
+	 *            local frame index.
+	 */
 	public void storeInt(int index, int v) {
 		primitiveVariables[index] = v;
 	}
 
+	/**
+	 * Stores a long from the local frame.
+	 * <p>
+	 * Called by the instrumented method when yielding a value or before the
+	 * Continuation.suspend()
+	 * 
+	 * @param index
+	 *            local frame index.
+	 */
 	public void storeLong(int index, long v) {
 		primitiveVariables[index] = v;
 	}
 
+	/**
+	 * Stores a float from the local frame. For performance reasons jyield
+	 * stores all the local variables in a long array. The floats are converted
+	 * to int using Float.floatToRawIntBits
+	 * <p>
+	 * Called by the instrumented method when yielding a value or before the
+	 * Continuation.suspend()
+	 * 
+	 * @param index
+	 *            local frame index.
+	 */
 	public void storeFloat(int index, float v) {
 		primitiveVariables[index] = Float.floatToRawIntBits(v);
 	}
 
+	/**
+	 * Stores a double from the local frame. For performance reasons jyield
+	 * stores all the local variables in a long array. The doubless are
+	 * converted to long using Double.doubleToRawLongBits
+	 * <p>
+	 * Called by the instrumented method when yielding a value or before the
+	 * Continuation.suspend()
+	 * 
+	 * @param index
+	 *            local frame index.
+	 */
 	public void storeDouble(int index, double v) {
 		primitiveVariables[index] = Double.doubleToRawLongBits(v);
 	}
 
+	/**
+	 * Stores a object from the local frame.
+	 * <p>
+	 * Called by the instrumented method when yielding a value or before the
+	 * Continuation.suspend()
+	 * 
+	 * @param index
+	 *            local frame index.
+	 */
 	public void storeObject(int index, Object v) {
 		objectVariables[index] = v;
 	}
