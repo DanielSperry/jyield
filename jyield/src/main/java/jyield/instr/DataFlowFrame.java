@@ -10,6 +10,14 @@ import org.objectweb.asm.tree.analysis.Frame;
 import org.objectweb.asm.tree.analysis.Interpreter;
 import org.objectweb.asm.tree.analysis.Value;
 
+/**
+ * Needed to perform data flow analysis the @Continuable methods.
+ * <p>
+ * This Asm Frame is tailored to consider also the synchronized and try catch
+ * finally.
+ * 
+ * @author Daniel Sperry - 2010
+ */
 public class DataFlowFrame extends Frame {
 	ArrayList<Integer> monitors;
 

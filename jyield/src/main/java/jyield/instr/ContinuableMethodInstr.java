@@ -68,6 +68,11 @@ import org.objectweb.asm.tree.analysis.BasicValue;
 import org.objectweb.asm.tree.analysis.Frame;
 import org.objectweb.asm.tree.analysis.Value;
 
+/**
+ * Method visitor used for the instrumentation of the @Continuable methods.
+ * 
+ * @author Daniel Sperry 2010
+ */
 final class ContinuableMethodInstr extends MethodAdapter {
 	private static final String[] THROWABLE_EXCEPTION_LIST = new String[] { Throwable.class
 			.getName().replace('.', '/') };

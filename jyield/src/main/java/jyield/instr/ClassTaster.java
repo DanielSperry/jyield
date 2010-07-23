@@ -15,7 +15,7 @@ import org.objectweb.asm.commons.EmptyVisitor;
 
 /**
  * Tastes classes to find out if they need the jyield instrumentation.
- * <p> 
+ * <p>
  * Used during online and offline bytecode weaving.
  * 
  * @author Daniel Sperry - 2010
@@ -24,6 +24,7 @@ final class ClassTaster extends EmptyVisitor {
 	static final String LJYIELD_CONTINUABLE = "L"
 			+ Continuable.class.getName().replace('.', '/') + ";";
 
+	// method sulfixes that jyield searches for
 	static final String SUFFIX1 = ")L"
 			+ Enumeration.class.getName().replace('.', '/') + ";";
 	static final String SUFFIX2 = ")L"
@@ -33,8 +34,18 @@ final class ClassTaster extends EmptyVisitor {
 	static final String SUFFIX4 = ")L"
 			+ Continuation.class.getName().replace('.', '/') + ";";
 
+	/**
+	 * Has found the right return type on a method (using the sulfixes)?
+	 */
 	boolean rightReturn;
+	/**
+	 * Has found the right return type on a method?
+	 */
 	boolean rightAnnotation;
+
+	/**
+	 * Visited class name.
+	 */
 	String name;
 
 	/**
@@ -43,7 +54,7 @@ final class ClassTaster extends EmptyVisitor {
 	public boolean isShouldInstrument() {
 		return rightReturn && rightAnnotation;
 	}
-	
+
 	@Override
 	public void visit(int version, int access, String name, String signature,
 			String superName, String[] interfaces) {
@@ -60,6 +71,13 @@ final class ClassTaster extends EmptyVisitor {
 		return super.visitMethod(access, name, desc, signature, exceptions);
 	}
 
+	/**
+	 * Checks a method descriptio for the valid sulfixes.
+	 * 
+	 * @param desc
+	 *            jvm method description.
+	 * @return true if this method description has one of the valid sulfixes.
+	 */
 	public static boolean isValidDesc(String desc) {
 		return desc.endsWith(SUFFIX1) || desc.endsWith(SUFFIX2)
 				|| desc.endsWith(SUFFIX3) || desc.endsWith(SUFFIX4);
