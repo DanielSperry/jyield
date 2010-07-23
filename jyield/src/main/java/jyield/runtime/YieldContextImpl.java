@@ -7,22 +7,76 @@ import java.util.Iterator;
 import jyield.Continuation;
 
 /**
- * Subclasses of YieldContextImpl are returned by the transformed @Continuable methods. 
+ * Subclasses of YieldContextImpl are returned by the transformed @Continuable
+ * methods.
+ * <p>
+ * The user should not use this class directly but rather access the methods
+ * from Continuation or YieldContext.
  */
 public class YieldContextImpl<T> extends Continuation implements
 		YieldContext<T>, Iterator<T>, ContinuationContext, Serializable {
 	private static final long serialVersionUID = 1L;
-	
+
+	/**
+	 * If the generator/coroutine is not static, target is the object instance
+	 * that receives the calls.
+	 */
 	protected Object target;
+
+	/**
+	 * Holds the object variables from the generator/continuation stack. The
+	 * variables are only saved in this array when Yield.ret or
+	 * Continuation.suspend are called.
+	 */
 	private Object[] objectVariables;
+	/**
+	 * Holds the primitive variables from the generator/continuation stack. The
+	 * variables are only saved in this array when Yield.ret or
+	 * Continuation.suspend are called.
+	 * <p>
+	 * No other arrays are created to avoiding allocation too many primitive
+	 * type arrays. Floats and Doubles are converted for storage using
+	 * floatToRawIntBits and Double.doubleToRawLongBits.
+	 */
 	private long[] primitiveVariables;
+
+	/**
+	 * For generators, nextValue holds the last yielded value, if any.
+	 */
 	private Object nextValue;
+
+	/**
+	 * Has a next value to yield? If hasNext==false and mustStep==false then
+	 * generator is done.
+	 */
 	private boolean hasNext;
+
+	/**
+	 * Indicates if the generator must step before the Iterator returns a value
+	 * or before evaluating hasNext.
+	 */
 	private boolean mustStep = true;
+
+	/**
+	 * True if the generator/continuation reached its end.
+	 */
 	private boolean done;
+
+	/**
+	 * Holds the pseudo instruction pointer that allows jyield to find out from
+	 * where it should resume the generator/continuation.
+	 */
 	private int nextLine;
 	private Enumeration<T> joined;
+
+	/**
+	 * True when the user called Iterator.remove() since the last yield.
+	 */
 	private boolean shouldRemove;
+
+	/**
+	 * Used when Continuation.join or Yield.join was called.
+	 */
 	private Iterator<T> joinedIterator;
 
 	public YieldContextImpl(int localsCount, Object target) {

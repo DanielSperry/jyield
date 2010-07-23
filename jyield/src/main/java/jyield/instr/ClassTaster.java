@@ -13,6 +13,13 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.commons.EmptyVisitor;
 
+/**
+ * Tastes classes to find out if they need the jyield instrumentation.
+ * <p> 
+ * Used during online and offline bytecode weaving.
+ * 
+ * @author Daniel Sperry - 2010
+ */
 final class ClassTaster extends EmptyVisitor {
 	static final String LJYIELD_CONTINUABLE = "L"
 			+ Continuable.class.getName().replace('.', '/') + ";";
@@ -30,9 +37,13 @@ final class ClassTaster extends EmptyVisitor {
 	boolean rightAnnotation;
 	String name;
 
+	/**
+	 * @return true if the visited class should be instrumented.
+	 */
 	public boolean isShouldInstrument() {
 		return rightReturn && rightAnnotation;
 	}
+	
 	@Override
 	public void visit(int version, int access, String name, String signature,
 			String superName, String[] interfaces) {
@@ -54,6 +65,9 @@ final class ClassTaster extends EmptyVisitor {
 				|| desc.endsWith(SUFFIX3) || desc.endsWith(SUFFIX4);
 	}
 
+	/**
+	 * Locates methods annotated with @Continuable annotation.
+	 */
 	@Override
 	public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
 		if (LJYIELD_CONTINUABLE.equals(desc)) {
