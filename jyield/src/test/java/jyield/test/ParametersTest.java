@@ -13,8 +13,16 @@ import org.junit.Test;
 public class ParametersTest {
 	int proof;
 
+	/**
+	 * Tests is a generator receives correctly the parameters passed to it.
+	 * <p>
+	 * The first call to produceStringsWithFor (or any other
+	 * generator/coroutine) does not execute the generator code. It just saves
+	 * the parameters and returns a new YieldContext.
+	 */
 	@Test
 	public void testIntParam() {
+		// used to check if the iterator is looping.
 		proof = 1;
 		Enumeration<String> e = produceStringsWithFor(1, 3);
 		assertEquals(1, proof);
@@ -32,6 +40,6 @@ public class ParametersTest {
 			Yield.ret("c" + i);
 			proof = i;
 		}
-		return Yield.done();
+		return null;
 	}
 }

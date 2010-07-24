@@ -8,6 +8,9 @@ import org.junit.Test;
 
 public class IssueTest {
 
+	/**
+	 * Tests if the an empty generator works the right way.
+	 */
 	@Test(timeout = 1000)
 	public void yieldNothingTest() {
 		assertFalse(yieldNothing().iterator().hasNext());
@@ -23,6 +26,9 @@ public class IssueTest {
 		return null;
 	}
 
+	/**
+	 * Tests if static function may be generators.
+	 */
 	@Test(timeout = 1000)
 	public void staticMethodInstrumentationTest() {
 		assertFalse(staticGenerator().iterator().hasNext());
@@ -33,6 +39,12 @@ public class IssueTest {
 		return null;
 	}
 
+	/**
+	 * Tests if private method may be generators.
+	 * <p>
+	 * In order to private methods to work a hidden accessor must be added to
+	 * the generator class.
+	 */
 	@Test(timeout = 1000)
 	public void privateMethodInstrumentationTest() {
 		assertFalse(privateGenerator().iterator().hasNext());
@@ -47,7 +59,13 @@ public class IssueTest {
 		return null;
 	}
 
-	@Test(timeout = 1000)
+	/**
+	 * Tests if an object variable is restored correctly.
+	 * <p>
+	 * The object variable restore must typecheck the restored variable or else
+	 * the jvm byte verifier fails.
+	 */
+	@Test
 	public void typeVariableTest() {
 		assertFalse(typeVariable().iterator().hasNext());
 	}

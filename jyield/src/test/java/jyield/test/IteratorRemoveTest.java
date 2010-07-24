@@ -12,6 +12,12 @@ import org.junit.Test;
 
 public class IteratorRemoveTest {
 
+	/**
+	 * Tests the Iterator.remove signaling is working properly.
+	 * <p>
+	 * The generators must be able to know when the Iterator.remove was called.
+	 * They may use YieldContext.getShouldRemove() to check this.
+	 */
 	@Test
 	public void testRet() {
 		Iterator<String> r = produceStrings();

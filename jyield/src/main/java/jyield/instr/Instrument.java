@@ -10,11 +10,29 @@ import java.util.Map;
 import java.util.Properties;
 
 /**
- * Performs offline byte code transformation.
- * After the transformation classes may be deployed without the -javaagent 
- * parameter and with a smaller runtime library.
+ * Performs offline byte code transformation. After the transformation classes
+ * may be deployed without the -javaagent parameter and with a smaller runtime
+ * library.
+ * <p>
+ * Usage:
  * 
- * @author Daniel Sperry 2010
+ * <pre>
+ * java -jar jyield-VERSION-with-deps.jar [--inputdir:path01] [--outputdir:path02] [--verbose] [--overwrite] [file01] [file02] ...
+ * 	--inputdir:input-path  the input directory to be searched
+ * 	--outputdir:out-path   the output directory, default is the current dir
+ * 	--verbose              prints debug info during instrumentation
+ * 	--overwrite            allows class files to be overwriten
+ * 	--help                 displays this message
+ * </pre>
+ * 
+ * Examples:
+ * 
+ * <pre>
+ *    java -jar jyield-VERSION-with-deps.jar --overwrite Sample.class --verbose
+ *    java -jar jyield-VERSION-with-deps.jar --overwrite --inputdir:bin --outputdir:bin
+ * </pre>
+ * 
+ * @author Daniel Sperry - 2010
  */
 public class Instrument {
 
@@ -32,13 +50,15 @@ public class Instrument {
 
 	private void execute(String[] args) throws IOException,
 			IllegalClassFormatException {
+		// parses the parameters into a property map
+		// quick and dirt..
 		for (int i = 0; i < args.length; i++) {
 			String arg = args[i];
 			if (arg.startsWith("-")) {
 				int idx = arg.indexOf(':');
 				if (idx > 0) {
-					options.put(arg.substring(0, idx).toLowerCase(), arg
-							.substring(idx + 1));
+					options.put(arg.substring(0, idx).toLowerCase(),
+							arg.substring(idx + 1));
 				} else {
 					options.put(arg.toLowerCase(), "true");
 				}

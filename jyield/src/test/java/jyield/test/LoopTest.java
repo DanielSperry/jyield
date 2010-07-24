@@ -12,6 +12,12 @@ import org.junit.Test;
 
 public class LoopTest {
 
+	/**
+	 * Tests a <code>for</code> loop inside the generators.
+	 * <p>
+	 * For this test to work, the local variable save/restore should be correct,
+	 * and the jump labels must be restored correctly.
+	 */
 	@Test
 	public void testFor() {
 		Enumeration<String> e = produceStringsWithFor();
@@ -21,6 +27,15 @@ public class LoopTest {
 		}
 	}
 
+	/**
+	 * Tests a <code>while</code> loop inside the generators.
+	 * <p>
+	 * For this test to work, the local variable save/restore should be correct,
+	 * and the jump labels must be restored correctly.
+	 * <p>
+	 * The while loop instrumentation is no different from the for loop. This
+	 * test is here just-in-case.
+	 */
 	@Test
 	public void testWhile() {
 		Enumeration<String> e = produceStringsWithWhile();
