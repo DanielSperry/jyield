@@ -237,6 +237,9 @@ final class ContinuableMethodInstr extends MethodAdapter {
 	public void emitChangedMethod() {
 
 		// accessor
+		// the accessor method is used to ensure that even private methods may
+		// be accessible from the generated YieldContextImpl
+		// It only forwards the invocation of the changed method.
 		{
 			MethodVisitor mv = cv.underliningVisitor().visitMethod(
 					ACC_STATIC + ACC_SYNTHETIC, "access$" + stepMethodName,
@@ -260,6 +263,8 @@ final class ContinuableMethodInstr extends MethodAdapter {
 			mv.visitEnd();
 		}
 
+		// The frames for each label.
+		// used to save/restore local variables.
 		Map<LabelNode, Frame> labelFrames = new HashMap<LabelNode, Frame>();
 
 		InsnList instructions = mn.instructions;
@@ -277,15 +282,25 @@ final class ContinuableMethodInstr extends MethodAdapter {
 				(mn.access & ~(ACC_PUBLIC | ACC_PROTECTED)) | ACC_PRIVATE,
 				stepMethodName, stepMethodDesc, null, THROWABLE_EXCEPTION_LIST);
 
+		// Loads the first parameter that should be the YieldContextImpl for
+		// this coroutine.
+		// locals[ctxIdx] = context.
 		fmv.visitVarInsn(ALOAD, isStatic ? 0 : 1);
 		fmv.visitVarInsn(ASTORE, ctxIdx);
-		fmv.visitVarInsn(ALOAD, ctxIdx);
-		fmv.visitMethodInsn(INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS,
-				"getNextLine", "()I");
+
 		Label[] enterLabels = null;
 		Label[] exitLabels = null;
 		Map<LabelNode, Integer> sRetLabels = new HashMap<LabelNode, Integer>();
+		// retLabels represent the lines after Yield.ret or
+		// Continuation.suspend.
+		// they are alternative entry points for the coroutine.
 		if (retLabels.size() > 0) {
+			// obtains the next jump label for this coroutine.
+			// this is used to jump to the correct line of code.
+			fmv.visitVarInsn(ALOAD, ctxIdx);
+			fmv.visitMethodInsn(INVOKEVIRTUAL, YIELD_CONTEXT_IMPL_CLASS,
+					"getNextLine", "()I");
+
 			Label start = new Label();
 			enterLabels = new Label[retLabels.size()];
 			exitLabels = new Label[retLabels.size()];
@@ -294,34 +309,58 @@ final class ContinuableMethodInstr extends MethodAdapter {
 				exitLabels[i] = new Label();
 				sRetLabels.put((LabelNode) retLabels.get(i).info, i);
 			}
+
+			// this table switch is used to jump to the correct entry point
+			// defined by the YieldContext.getNextLine() method
+
 			fmv.visitTableSwitchInsn(1, enterLabels.length, start, enterLabels);
+
+			// this is the default and also the first label for the tableswitch.
 			fmv.visitLabel(start);
-			emitLoadStoreLocals(true, false, ctxIdx, fmv,
-					analyzer.getFrames()[0]);
+			// load the saved variables.
+			emitLoadLocals(ctxIdx, fmv, analyzer.getFrames()[0]);
+			// the defaultStart is the real start of the original function.
 			Label defaultStart = new Label();
 			fmv.visitJumpInsn(GOTO, defaultStart);
+
 			for (int i = 0; i < enterLabels.length; i++) {
-				// enter
+				// enter: called on restore
 				fmv.visitLabel(enterLabels[i]);
 				Label ln = retLabels.get(i);
 				Frame frame = labelFrames.get(ln.info);
-				emitLoadStoreLocals(true, false, ctxIdx, fmv, frame);
+				emitLoadLocals(ctxIdx, fmv, frame);
 				fmv.visitVarInsn(ALOAD, ctxIdx);
 				fmv.visitJumpInsn(GOTO, ln);
-				// exit
+
+				// exit: called before exiting the function
 				fmv.visitLabel(exitLabels[i]);
-				emitLoadStoreLocals(false, true, ctxIdx, fmv, frame);
+				emitStoreLocals(ctxIdx, fmv, frame);
 				fmv.visitVarInsn(ALOAD, ctxIdx);
 				fmv.visitInsn(ARETURN);
 
+				// the exit code is called on the iteration before the enter
+				// code.
+				// It is like user code was written like:
+				// -> exit: storeLocals();
+				// -> Continuation.suspend();
+				// -> enter: loadLocals();
 			}
 			fmv.visitLabel(defaultStart);
 
 		} else {
-			emitLoadStoreLocals(true, false, ctxIdx, fmv,
-					analyzer.getFrames()[0]);
+			emitLoadLocals(ctxIdx, fmv, analyzer.getFrames()[0]);
 		}
 
+		// This loop translates the calls to Continuation.suspend, Yield.ret,
+		// and joins to their correct byte codes.
+		//
+		// Those calls (suspend, ret and join) produce an interruption of the
+		// coroutine. They need to be replaced by:
+		// 1) a call to the yield context signaling the interruption and passing
+		// the id of the next entry point.
+		// 2) saving the local variables
+		// 3) return
+		//
 		for (AbstractInsnNode inst = instructions.getFirst(); inst != null; inst = inst
 				.getNext()) {
 			Integer idx = sRetLabels.get(inst);
@@ -330,6 +369,7 @@ final class ContinuableMethodInstr extends MethodAdapter {
 					inst.accept(fmv);
 				}
 			} else {
+				// every opcode marked by a return label (retLabel) is tested.
 				LabelNode ln = (LabelNode) inst;
 				MethodInsnNode mn = (MethodInsnNode) ln.getPrevious();
 				fmv.visitVarInsn(ALOAD, ctxIdx);
@@ -363,10 +403,12 @@ final class ContinuableMethodInstr extends MethodAdapter {
 			}
 		}
 
+		// Redeclaring the locals.
 		for (int i = 0; i < mn.localVariables.size(); i++) {
 			LocalVariableNode n = (LocalVariableNode) mn.localVariables.get(i);
 			n.accept(fmv);
 		}
+		// Redeclaring the try catch blocks.
 		for (int i = 0; i < mn.tryCatchBlocks.size(); i++) {
 			TryCatchBlockNode tn = (TryCatchBlockNode) mn.tryCatchBlocks.get(i);
 			tn.accept(fmv);
@@ -375,6 +417,19 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		fmv.visitEnd();
 	}
 
+	private void emitLoadLocals(int contextLocalIdx, MethodVisitor fmv,
+			Frame frame) {
+		emitLoadStoreLocals(true, false, contextLocalIdx, fmv, frame);
+	}
+
+	private void emitStoreLocals(int contextLocalIdx, MethodVisitor fmv,
+			Frame frame) {
+		emitLoadStoreLocals(false, true, contextLocalIdx, fmv, frame);
+	}
+
+	/**
+	 * Store or Load the local variables.
+	 */
 	private void emitLoadStoreLocals(boolean emitLoad, boolean emitStore,
 			int contextLocalIdx, MethodVisitor fmv, Frame frame) {
 		// System.out.println(":::");
@@ -496,7 +551,7 @@ final class ContinuableMethodInstr extends MethodAdapter {
 		int ctxIdx = mn.maxLocals + 1;
 		fmv.visitVarInsn(ASTORE, ctxIdx);
 		Frame frame = analyzer.getFrames()[0];
-		emitLoadStoreLocals(false, true, ctxIdx, fmv, frame);
+		emitStoreLocals(ctxIdx, fmv, frame);
 
 		fmv.visitVarInsn(ALOAD, ctxIdx);
 		fmv.visitInsn(ARETURN);
