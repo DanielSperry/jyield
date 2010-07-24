@@ -16,6 +16,14 @@ import jyield.Continuation;
 
 import org.junit.Test;
 
+/**
+ * Tests if a continuation may be serialized.
+ * <p>
+ * Serializing the continuation also serializes all the variables on coroutine
+ * stack plus the object that owns the coroutine.
+ * 
+ * @author Daniel Sperry - 2010
+ */
 public class StateSerializatonTest {
 	public static class ContinuableStuff implements Serializable {
 		private static final long serialVersionUID = 1L;
@@ -34,8 +42,12 @@ public class StateSerializatonTest {
 		}
 	}
 
+	/**
+	 * Tests the Continuation without any serialization. Just to check the
+	 * expected behavior.
+	 */
 	@Test
-	public void checkNormalBehaviour() throws IOException {
+	public void checkNormalBehaviour() {
 		ContinuableStuff c1 = new ContinuableStuff();
 		c1.p = -100;
 		Continuation e1 = c1.run();
@@ -49,6 +61,10 @@ public class StateSerializatonTest {
 		assertEquals(12, c1.p);
 	}
 
+	/**
+	 * Tests the Continuation serializing it after some resumes. The
+	 * deserialized version should continue from the same point.
+	 */
 	@Test
 	public void testStateSerialization() throws IOException,
 			ClassNotFoundException {

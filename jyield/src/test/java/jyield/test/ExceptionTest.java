@@ -8,6 +8,12 @@ import jyield.Continuation;
 
 import org.junit.Test;
 
+/**
+ * Several tests to check if exception handling inside generators/coroutines are
+ * working properly
+ * 
+ * @author Daniel Sperry - 2010
+ */
 public class ExceptionTest {
 
 	private int where;
